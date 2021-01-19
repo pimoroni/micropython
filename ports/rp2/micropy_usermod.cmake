@@ -28,3 +28,4 @@ if (USER_C_MODULES)
 endif()
 
 usermod_gather_sources(SOURCE_USERMOD _touched usermod)
+message("SOURCE_USERMOD ${SOURCE_USERMOD}")

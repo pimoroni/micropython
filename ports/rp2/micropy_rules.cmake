@@ -29,7 +29,7 @@ add_custom_command(
 set(REL_PATHS "")
 foreach(ABS_PATH ${SOURCE_QSTR})
     file(RELATIVE_PATH REL_PATH ${CMAKE_CURRENT_LIST_DIR} ${ABS_PATH})
-    list(APPEND REL_PATHS ${REL_PATH})
+    set(REL_PATHS "${REL_PATHS} ${REL_PATH}")
 endforeach()
 
 add_custom_command(

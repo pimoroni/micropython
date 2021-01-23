@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 #include "hardware/spi.h"
+#include "hardware/sync.h"
 #include "pico/binary_info.h"
 
 // Board and hardware specific configuration

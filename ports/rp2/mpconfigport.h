@@ -112,6 +112,7 @@
 
 // Pimoroni Pico extras
 #define MICROPY_PY_UJSON                        (1)
+#define MICROPY_PY_URE                          (1)
 
 // Use VfsLfs2's types for fileio/textio
 #define mp_type_fileio mp_type_vfs_lfs2_fileio

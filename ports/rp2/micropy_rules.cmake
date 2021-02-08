@@ -25,9 +25,16 @@ add_custom_command(
 
 # Generate moduledefs.h
 
+# need to convert to relative paths (use ${CMAKE_CURRENT_LIST_DIR} as arbitrary reference)
+set(REL_PATHS "")
+foreach(ABS_PATH ${SOURCE_QSTR})
+    file(RELATIVE_PATH REL_PATH ${CMAKE_CURRENT_LIST_DIR} ${ABS_PATH})
+    list(APPEND REL_PATHS ${REL_PATH})
+endforeach()
+
 add_custom_command(
     OUTPUT ${MPY_MODULEDEFS}
-    COMMAND python3 ${MPY_PY_DIR}/makemoduledefs.py --vpath="/" ${SOURCE_QSTR} > ${MPY_MODULEDEFS}
+    COMMAND python3 ${MPY_PY_DIR}/makemoduledefs.py --vpath="${CMAKE_CURRENT_LIST_DIR}" ${REL_PATHS} > ${MPY_MODULEDEFS}
     DEPENDS ${MPY_MPVERSION}
         ${SOURCE_QSTR}
 )

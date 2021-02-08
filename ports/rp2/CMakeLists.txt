@@ -26,6 +26,8 @@ pico_sdk_init()
 
 add_executable(${MICROPYTHON_TARGET})
 
+include(micropy_usermod.cmake)
+
 set(SOURCE_LIB
     ${MPY_DIR}/lib/littlefs/lfs1.c
     ${MPY_DIR}/lib/littlefs/lfs1_util.c
@@ -72,6 +74,7 @@ set(SOURCE_PORT
 set(SOURCE_QSTR
     ${SOURCE_PY}
     ${SOURCE_EXTMOD}
+    ${SOURCE_USERMOD}
     ${MPY_DIR}/lib/utils/mpirq.c
     ${MPY_DIR}/lib/utils/sys_stdio_mphal.c
     ${PROJECT_SOURCE_DIR}/machine_adc.c
@@ -105,6 +108,10 @@ target_sources(${MICROPYTHON_TARGET} PRIVATE
     ${SOURCE_DRIVERS}
     ${SOURCE_PORT}
 )
+
+# even though we have SOURCE_USERMOD, include the interface library tree as that has
+# compile definitions too
+target_link_libraries(${MICROPYTHON_TARGET} usermod)
 
 target_include_directories(${MICROPYTHON_TARGET} PRIVATE
                            "${PROJECT_SOURCE_DIR}"

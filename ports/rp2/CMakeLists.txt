@@ -27,6 +27,8 @@ project(${MICROPYTHON_TARGET})
 
 pico_sdk_init()
 
+include(${MPY_DIR}/py/usermod.cmake)
+
 add_executable(${MICROPYTHON_TARGET})
 
 set(SOURCE_LIB
@@ -76,6 +78,7 @@ set(SOURCE_PORT
 set(SOURCE_QSTR
     ${SOURCE_PY}
     ${SOURCE_EXTMOD}
+    ${SOURCE_USERMOD}
     ${MPY_DIR}/lib/utils/mpirq.c
     ${MPY_DIR}/lib/utils/sys_stdio_mphal.c
     ${PROJECT_SOURCE_DIR}/machine_adc.c
@@ -109,6 +112,8 @@ target_sources(${MICROPYTHON_TARGET} PRIVATE
     ${SOURCE_DRIVERS}
     ${SOURCE_PORT}
 )
+
+target_link_libraries(${MICROPYTHON_TARGET} usermod)
 
 target_include_directories(${MICROPYTHON_TARGET} PRIVATE
                            "${PROJECT_SOURCE_DIR}"

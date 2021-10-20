@@ -33,9 +33,15 @@
 extern const mp_obj_type_t PicosystemBuffer_type;
 extern const mp_obj_type_t PicosystemVoice_type;
 
+// picosystem.cpp
+
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_init_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_reset_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_tick_obj);
+
+// stats.cpp
+
+MP_DECLARE_CONST_FUN_OBJ_0(picosystem_stats_obj);
 
 // voice.cpp
 

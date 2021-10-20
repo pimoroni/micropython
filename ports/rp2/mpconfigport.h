@@ -32,6 +32,7 @@
 #include "pico/binary_info.h"
 
 #include "mpconfigboard.h"
+#include "board_builtin.h"
 
 // Board and hardware specific configuration
 #define MICROPY_HW_MCU_NAME                     "RP2040"
@@ -160,10 +161,14 @@
 #define mp_import_stat mp_vfs_import_stat
 #define mp_builtin_open_obj mp_vfs_open_obj
 
-// Hooks to add builtins
+#ifndef MICROPY_BOARD_BUILTINS
+#define MICROPY_BOARD_BUILTINS
+#endif
 
+// Hooks to add builtins
 #define MICROPY_PORT_BUILTINS \
-    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) },
+    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
+    MICROPY_BOARD_BUILTINS \
 
 extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_network;

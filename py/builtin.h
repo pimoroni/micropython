@@ -68,6 +68,7 @@ extern const mp_obj_type_t PicosystemVoice_type;
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_init_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_reset_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_tick_obj);
+MP_DECLARE_CONST_FUN_OBJ_0(picosystem_logo_obj);
 
 // stats.cpp
 

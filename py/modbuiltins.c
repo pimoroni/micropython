@@ -35,6 +35,9 @@
 #include "py/builtin.h"
 #include "py/stream.h"
 
+// HACK: hang the PicoSystem builtin defs off an internal module for now
+#include "board_builtin_defs.h"
+
 #if MICROPY_PY_BUILTINS_FLOAT
 #include <math.h>
 #endif

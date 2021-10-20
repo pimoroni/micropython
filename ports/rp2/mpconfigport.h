@@ -31,6 +31,7 @@
 #include "hardware/sync.h"
 #include "pico/binary_info.h"
 #include "mpconfigboard.h"
+#include "board_builtin.h"
 #if MICROPY_HW_USB_MSC
 #include "hardware/flash.h"
 #endif
@@ -128,6 +129,32 @@
 // Use VfsLfs2's types for fileio/textio
 #define mp_type_fileio mp_type_vfs_lfs2_fileio
 #define mp_type_textio mp_type_vfs_lfs2_textio
+
+// Use VFS's functions for import stat and builtin open
+#define mp_import_stat mp_vfs_import_stat
+#define mp_builtin_open_obj mp_vfs_open_obj
+
+#ifndef MICROPY_BOARD_BUILTINS
+#define MICROPY_BOARD_BUILTINS
+#endif
+
+// Hooks to add builtins
+#define MICROPY_PORT_BUILTINS \
+    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
+    MICROPY_BOARD_BUILTINS \
+
+extern const struct _mp_obj_module_t mp_module_machine;
+extern const struct _mp_obj_module_t mp_module_network;
+extern const struct _mp_obj_module_t mp_module_onewire;
+extern const struct _mp_obj_module_t mp_module_rp2;
+extern const struct _mp_obj_module_t mp_module_uos;
+extern const struct _mp_obj_module_t mp_module_usocket;
+extern const struct _mp_obj_module_t mp_module_utime;
+
+#if MICROPY_PY_USOCKET
+#define SOCKET_BUILTIN_MODULE               { MP_ROM_QSTR(MP_QSTR_usocket), MP_ROM_PTR(&mp_module_usocket) },
+#else
+#define SOCKET_BUILTIN_MODULE
 #endif
 
 #if MICROPY_PY_NETWORK

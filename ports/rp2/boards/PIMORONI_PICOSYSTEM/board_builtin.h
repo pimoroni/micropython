@@ -28,7 +28,8 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR_pen), MP_ROM_PTR(&picosystem_pen_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_tick), MP_ROM_PTR(&picosystem_tick_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picosystem_init_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&picosystem_reset_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR__reset), MP_ROM_PTR(&picosystem_reset_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR__logo), MP_ROM_PTR(&picosystem_logo_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_stats), MP_ROM_PTR(&picosystem_stats_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_play), MP_ROM_PTR(&picosystem_play_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_clip), MP_ROM_PTR(&picosystem_clip_obj) }, \

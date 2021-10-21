@@ -50,7 +50,7 @@
 #include "hardware/structs/rosc.h"
 
 extern uint8_t __StackTop, __StackBottom;
-static char gc_heap[192 * 1024];
+static char gc_heap[162 * 1024]; // Leave room for PicoSystem display buffer
 
 // Embed version info in the binary in machine readable form
 bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
@@ -62,6 +62,8 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
 int main(int argc, char **argv) {
+    set_sys_clock_khz(250000, true);
+
     #if MICROPY_HW_ENABLE_UART_REPL
     bi_decl(bi_program_feature("UART REPL"))
     setup_default_uart();

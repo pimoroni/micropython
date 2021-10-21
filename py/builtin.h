@@ -36,11 +36,10 @@ extern const mp_obj_type_t PicosystemVoice_type;
 // picosystem.cpp
 
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_init_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_reset_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_tick_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_logo_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_run_obj);
+MP_DECLARE_CONST_FUN_OBJ_0(picosystem_start_obj);
 MP_DECLARE_CONST_FUN_OBJ_0(picosystem_quit_obj);
+MP_DECLARE_CONST_FUN_OBJ_0(picosystem_flip_obj);
 
 // stats.cpp
 
@@ -53,11 +52,14 @@ MP_DECLARE_CONST_FUN_OBJ_KW(picosystem_play_obj);
 // state.cpp
 
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_pen_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_alpha_obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_clip_obj);
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_blend_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_blend_obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_target_obj);
-MP_DECLARE_CONST_FUN_OBJ_2(picosystem_camera_obj);
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_spritesheet_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_camera_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_cursor_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_spritesheet_obj);
+// TODO font?
 
 // primitives.cpp
 
@@ -82,8 +84,11 @@ MP_DECLARE_CONST_FUN_OBJ_VAR(picosystem_fpoly_obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_line_obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_blit_obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_sprite_obj);
+
+// text.cpp
+
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_text_obj);
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_text_width_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_measure_obj);
 
 // utility.cpp
 

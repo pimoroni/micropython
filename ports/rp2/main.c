@@ -57,7 +57,7 @@
 #if MICROPY_PY_LWIP
 #define MICROPY_GC_HEAP_SIZE 166 * 1024
 #else
-#define MICROPY_GC_HEAP_SIZE 192 * 1024
+#define MICROPY_GC_HEAP_SIZE 162 * 1024
 #endif
 #endif
 
@@ -74,6 +74,8 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
 int main(int argc, char **argv) {
+    set_sys_clock_khz(250000, true);
+
     #if MICROPY_HW_ENABLE_UART_REPL
     bi_decl(bi_program_feature("UART REPL"))
     setup_default_uart();

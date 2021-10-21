@@ -26,18 +26,19 @@ enum _sprites_ids {
     { MP_OBJ_NEW_QSTR(MP_QSTR_Buffer), (mp_obj_t)&PicosystemBuffer_type }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_Voice), (mp_obj_t)&PicosystemVoice_type }, \
     { MP_ROM_QSTR(MP_QSTR_pen), MP_ROM_PTR(&picosystem_pen_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_tick), MP_ROM_PTR(&picosystem_tick_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&picosystem_init_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&picosystem_run_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&picosystem_start_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_quit), MP_ROM_PTR(&picosystem_quit_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR__reset), MP_ROM_PTR(&picosystem_reset_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_flip), MP_ROM_PTR(&picosystem_flip_obj) }, \
     { MP_ROM_QSTR(MP_QSTR__logo), MP_ROM_PTR(&picosystem_logo_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_stats), MP_ROM_PTR(&picosystem_stats_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_play), MP_ROM_PTR(&picosystem_play_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_alpha), MP_ROM_PTR(&picosystem_alpha_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_clip), MP_ROM_PTR(&picosystem_clip_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_blend), MP_ROM_PTR(&picosystem_blend_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_target), MP_ROM_PTR(&picosystem_target_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_camera), MP_ROM_PTR(&picosystem_camera_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_cursor), MP_ROM_PTR(&picosystem_cursor_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_spritesheet), MP_ROM_PTR(&picosystem_spritesheet_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&picosystem_clear_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_pixel), MP_ROM_PTR(&picosystem_pixel_obj) }, \
@@ -55,7 +56,7 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR_blit), MP_ROM_PTR(&picosystem_blit_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_sprite), MP_ROM_PTR(&picosystem_sprite_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_text), MP_ROM_PTR(&picosystem_text_obj) }, \
-    { MP_ROM_QSTR(MP_QSTR_text_width), MP_ROM_PTR(&picosystem_text_width_obj) }, \
+    { MP_ROM_QSTR(MP_QSTR_measure), MP_ROM_PTR(&picosystem_measure_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_rgb), MP_ROM_PTR(&picosystem_rgb_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_hsv), MP_ROM_PTR(&picosystem_hsv_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_intersects), MP_ROM_PTR(&picosystem_intersects_obj) }, \

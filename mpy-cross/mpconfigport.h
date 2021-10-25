@@ -90,6 +90,11 @@
 #define MICROPY_PY_IO               (0)
 #define MICROPY_PY_SYS              (0)
 
+
+#ifndef MICROPY_BOARD_BUILTIN_DEFS
+#define MICROPY_BOARD_BUILTIN_DEFS  // HACK: For mpy-cross
+#endif
+
 // type definitions for the specific machine
 
 #ifdef __LP64__

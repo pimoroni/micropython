@@ -143,6 +143,14 @@
     { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
     MICROPY_BOARD_BUILTINS \
 
+#ifndef MICROPY_BOARD_BUILTIN_DEFS
+#define MICROPY_BOARD_BUILTIN_DEFS
+#endif
+
+// Hooks to add builtin defs
+#define MICROPY_PORT_BUILTIN_DEFS \
+    MICROPY_BOARD_BUILTIN_DEFS \
+
 extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_network;
 extern const struct _mp_obj_module_t mp_module_onewire;

@@ -57,89 +57,6 @@ static inline mp_obj_t mp_builtin_open(size_t n_args, const mp_obj_t *args, mp_m
 
 // A port can provide implementations of these functions.
 mp_import_stat_t mp_import_stat(const char *path);
-
-// HACK: hang the PicoSystem builtin defs off builtin.h
-
-extern const mp_obj_type_t PicosystemBuffer_type;
-extern const mp_obj_type_t PicosystemVoice_type;
-
-// picosystem.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_init_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_logo_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_start_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_quit_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_flip_obj);
-
-// stats.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_stats_obj);
-
-// voice.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_KW(picosystem_play_obj);
-
-// state.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_pen_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_alpha_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_clip_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_blend_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_target_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_camera_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_cursor_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_spritesheet_obj);
-// TODO font?
-
-// primitives.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_2(picosystem_pixel_obj);
-MP_DECLARE_CONST_FUN_OBJ_3(picosystem_hline_obj);
-MP_DECLARE_CONST_FUN_OBJ_3(picosystem_vline_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_clear_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_rect_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_frect_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_3(picosystem_circle_obj);
-MP_DECLARE_CONST_FUN_OBJ_3(picosystem_fcircle_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_ellipse_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_fellipse_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_VAR(picosystem_poly_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR(picosystem_fpoly_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_line_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_blit_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_sprite_obj);
-
-// text.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_text_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_measure_obj);
-
-// utility.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_rgb_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_hsv_obj);
-
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_intersects_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_intersection_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(picosystem_contains_obj);
-
-// hardware.cpp
-
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_pressed_obj);
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_button_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(picosystem_battery_obj);
-MP_DECLARE_CONST_FUN_OBJ_3(picosystem_led_obj);
-MP_DECLARE_CONST_FUN_OBJ_1(picosystem_backlight_obj);
-
-
-mp_obj_t mp_builtin___import__(size_t n_args, const mp_obj_t *args);
->>>>>>> 89ef12a97 (PicoSystem: HACK: Move builtin defs to builtin.h.)
 mp_obj_t mp_builtin_open(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs);
 
 // A port can provide this object.
@@ -149,6 +66,8 @@ MP_DECLARE_CONST_FUN_OBJ_KW(mp_builtin_open_obj);
 
 mp_obj_t mp_builtin___import__(size_t n_args, const mp_obj_t *args);
 mp_obj_t mp_micropython_mem_info(size_t n_args, const mp_obj_t *args);
+
+MICROPY_BOARD_BUILTIN_DEFS
 
 MP_DECLARE_CONST_FUN_OBJ_VAR(mp_builtin___build_class___obj);
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(mp_builtin___import___obj);

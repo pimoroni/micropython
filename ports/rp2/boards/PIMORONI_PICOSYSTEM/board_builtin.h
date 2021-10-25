@@ -33,6 +33,7 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR__logo), MP_ROM_PTR(&picosystem_logo_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_stats), MP_ROM_PTR(&picosystem_stats_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_play), MP_ROM_PTR(&picosystem_play_obj) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_alpha), MP_ROM_PTR(&picosystem_alpha_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_clip), MP_ROM_PTR(&picosystem_clip_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_blend), MP_ROM_PTR(&picosystem_blend_obj) }, \
@@ -40,6 +41,7 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR_camera), MP_ROM_PTR(&picosystem_camera_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_cursor), MP_ROM_PTR(&picosystem_cursor_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_spritesheet), MP_ROM_PTR(&picosystem_spritesheet_obj) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&picosystem_clear_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_pixel), MP_ROM_PTR(&picosystem_pixel_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_line), MP_ROM_PTR(&picosystem_line_obj) }, \
@@ -55,8 +57,10 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR_fpoly), MP_ROM_PTR(&picosystem_fpoly_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_blit), MP_ROM_PTR(&picosystem_blit_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_sprite), MP_ROM_PTR(&picosystem_sprite_obj) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_text), MP_ROM_PTR(&picosystem_text_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_measure), MP_ROM_PTR(&picosystem_measure_obj) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_rgb), MP_ROM_PTR(&picosystem_rgb_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_hsv), MP_ROM_PTR(&picosystem_hsv_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_intersects), MP_ROM_PTR(&picosystem_intersects_obj) }, \
@@ -67,17 +71,28 @@ enum _sprites_ids {
     { MP_ROM_QSTR(MP_QSTR_battery), MP_ROM_PTR(&picosystem_battery_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_led), MP_ROM_PTR(&picosystem_led_obj) }, \
     { MP_ROM_QSTR(MP_QSTR_backlight), MP_ROM_PTR(&picosystem_backlight_obj) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_UP), MP_ROM_INT(23) }, \
     { MP_ROM_QSTR(MP_QSTR_DOWN), MP_ROM_INT(20) }, \
     { MP_ROM_QSTR(MP_QSTR_LEFT), MP_ROM_INT(22) }, \
     { MP_ROM_QSTR(MP_QSTR_RIGHT), MP_ROM_INT(21) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_A), MP_ROM_INT(18) }, \
     { MP_ROM_QSTR(MP_QSTR_B), MP_ROM_INT(19) }, \
     { MP_ROM_QSTR(MP_QSTR_X), MP_ROM_INT(17) }, \
     { MP_ROM_QSTR(MP_QSTR_Y), MP_ROM_INT(16) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_COPY), MP_ROM_INT(0) }, \
     { MP_ROM_QSTR(MP_QSTR_ALPHA), MP_ROM_INT(1) }, \
     { MP_ROM_QSTR(MP_QSTR_MASK), MP_ROM_INT(2) }, \
+    { MP_ROM_QSTR(MP_QSTR_PEN), MP_ROM_INT(3) }, \
+    { MP_ROM_QSTR(MP_QSTR_DARKEN), MP_ROM_INT(4) }, \
+    { MP_ROM_QSTR(MP_QSTR_LIGHTEN), MP_ROM_INT(5) }, \
+    { MP_ROM_QSTR(MP_QSTR_ADD), MP_ROM_INT(6) }, \
+    { MP_ROM_QSTR(MP_QSTR_SUBTRACT), MP_ROM_INT(7) }, \
+    { MP_ROM_QSTR(MP_QSTR_MULTIPLY), MP_ROM_INT(8) }, \
+    { MP_ROM_QSTR(MP_QSTR_DISSOLVE), MP_ROM_INT(9) }, \
+\
     { MP_ROM_QSTR(MP_QSTR_CHERRY), MP_ROM_INT(CHERRY) }, \
     { MP_ROM_QSTR(MP_QSTR_APPLE), MP_ROM_INT(APPLE) }, \
     { MP_ROM_QSTR(MP_QSTR_BANANA), MP_ROM_INT(BANANA) }, \

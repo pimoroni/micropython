@@ -48,6 +48,7 @@
 #include "pico/binary_info.h"
 #include "hardware/rtc.h"
 #include "hardware/structs/rosc.h"
+#include "hardware/vreg.h"
 
 extern uint8_t __StackTop, __StackBottom;
 static char gc_heap[162 * 1024]; // Leave room for PicoSystem display buffer
@@ -62,6 +63,10 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
 int main(int argc, char **argv) {
+    // Apply a modest overvolt, default is 1.10v.
+    // this is required for a stable 250MHz on some RP2040s
+    vreg_set_voltage(VREG_VOLTAGE_1_20);
+    sleep_ms(10);
     set_sys_clock_khz(250000, true);
 
     #if MICROPY_HW_ENABLE_UART_REPL

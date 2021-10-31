@@ -70,6 +70,7 @@ set(MICROPY_SOURCE_LIB
     ${MICROPY_DIR}/shared/readline/readline.c
     ${MICROPY_DIR}/shared/timeutils/timeutils.c
     ${MICROPY_DIR}/extmod/machine_pinbase.c
+    ${MICROPY_DIR}/shared/readline/readline.c
 )
 
 set_source_files_properties(
@@ -96,6 +97,7 @@ set(MICROPY_SOURCE_PORT
     mpbtstackport_h4.c
     mpbtstackport_usb.c
     mpnimbleport.c
+    modtermios.c
 )
 
 set(MICROPY_SOURCE_QSTR
@@ -104,7 +106,9 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_SOURCE_USERMOD}
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
+    ${MICROPY_DIR}/shared/readline/readline.c
     ${PROJECT_SOURCE_DIR}/main.c
+    ${PROJECT_SOURCE_DIR}/modtermios.c
     ${PROJECT_SOURCE_DIR}/gccollect.c
     ${PROJECT_SOURCE_DIR}/unix_mphal.c
     ${PROJECT_SOURCE_DIR}/mpthreadport.c
@@ -157,6 +161,8 @@ endif()
 target_compile_definitions(${MICROPY_TARGET} PRIVATE
     MICROPY_QSTR_EXTRA_POOL=mp_qstr_frozen_const_pool
     MPZ_DIG_SIZE=16
+    MICROPY_USE_READLINE=1
+    MICROPY_PY_TERMIOS=1
 )
 
 target_sources(${MICROPY_TARGET} PRIVATE

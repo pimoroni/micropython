@@ -309,8 +309,22 @@ void mp_unix_mark_exec(void);
 #endif
 #endif
 
+#ifndef MICROPY_BOARD_BUILTINS
+#define MICROPY_BOARD_BUILTINS
+#endif
+
 #define MICROPY_PORT_BUILTINS \
-    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) },
+    { MP_ROM_QSTR(MP_QSTR_open), MP_ROM_PTR(&mp_builtin_open_obj) }, \
+    MICROPY_BOARD_BUILTINS \
+
+#ifndef MICROPY_BOARD_BUILTIN_DEFS
+#define MICROPY_BOARD_BUILTIN_DEFS
+#endif
+
+// Hooks to add builtin defs
+#define MICROPY_PORT_BUILTIN_DEFS \
+    MICROPY_BOARD_BUILTIN_DEFS \
+
 
 #define MP_STATE_PORT MP_STATE_VM
 

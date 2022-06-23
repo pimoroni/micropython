@@ -129,10 +129,11 @@
 // Use VfsLfs2's types for fileio/textio
 #define mp_type_fileio mp_type_vfs_lfs2_fileio
 #define mp_type_textio mp_type_vfs_lfs2_textio
+#endif
 
 // Use VFS's functions for import stat and builtin open
-#define mp_import_stat mp_vfs_import_stat
-#define mp_builtin_open_obj mp_vfs_open_obj
+//#define mp_import_stat mp_vfs_import_stat
+//#define mp_builtin_open_obj mp_vfs_open_obj
 
 #ifndef MICROPY_BOARD_BUILTINS
 #define MICROPY_BOARD_BUILTINS

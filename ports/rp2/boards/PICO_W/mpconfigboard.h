@@ -21,3 +21,6 @@
 #define MICROPY_HW_PIN_EXT_COUNT    CYW43_WL_GPIO_COUNT
 
 #define MICROPY_HW_PIN_RESERVED(i) ((i) == CYW43_PIN_WL_HOST_WAKE || (i) == CYW43_PIN_WL_REG_ON)
+
+// For LWIP this was 166, with BLE we have to reduce it a bit more
+#define MICROPY_GC_HEAP_SIZE 154 * 1024

@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2021 Damien P. George
+ * Copyright (c) 2020 Jim Mussared
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,20 +23,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef MICROPY_INCLUDED_RP2_MPBTHCIPORT_H
-#define MICROPY_INCLUDED_RP2_MPBTHCIPORT_H
 
-// Initialise the HCI subsystem (should be called once, early on).
-void mp_bluetooth_hci_init(void);
+#ifndef MICROPY_INCLUDED_STM32_BTSTACK_PORT_H
+#define MICROPY_INCLUDED_STM32_BTSTACK_PORT_H
 
-// Poll the HCI now, or after a certain timeout.
-void mp_bluetooth_hci_poll_now(void);
-void mp_bluetooth_hci_poll_in_ms(uint32_t ms);
+// To allow MICROPY_HW_BLE_UART_ID to be resolved.
 
-// Must be provided by the stack bindings (e.g. mpnimbleport.c or mpbtstackport.c).
-// Request new HCI data and pass to the stack, and run pending events/callouts.
-// This is a low-level function and should not be called directly, use
-// mp_bluetooth_hci_poll_now/mp_bluetooth_hci_poll_in_ms instead.
-void mp_bluetooth_hci_poll(void);
+#include "uart.h"
 
-#endif // MICROPY_INCLUDED_RP2_MPBTHCIPORT_H
+#endif // MICROPY_INCLUDED_STM32_BTSTACK_PORT_H

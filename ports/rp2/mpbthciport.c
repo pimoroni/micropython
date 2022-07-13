@@ -33,6 +33,12 @@
 #include "mpbthciport.h"
 #include "pico/stdlib.h"
 
+#if MICROPY_PY_BLUETOOTH_CYW43
+#define HCI_UART 0
+#else
+#define HCI_UART 1
+#endif
+
 #if MICROPY_PY_BLUETOOTH
 
 #define debug_printf(...) // mp_printf(&mp_plat_print, "mpbthciport.c: " __VA_ARGS__)
@@ -40,7 +46,6 @@
 
 // Poll timer ID.
 static alarm_id_t poll_timer_id = 0;
-
 uint8_t mp_bluetooth_hci_cmd_buf[4 + 256];
 
 // Prevent double-enqueuing of the scheduled task.
@@ -48,11 +53,6 @@ STATIC volatile bool events_task_is_scheduled;
 
 void mp_bluetooth_hci_init(void) {
     events_task_is_scheduled = false;
-}
-
-STATIC void mp_bluetooth_hci_start_polling(void) {
-    events_task_is_scheduled = false;
-    mp_bluetooth_hci_poll_now();
 }
 
 static int64_t mp_bluetooth_hci_timer_callback(alarm_id_t id, void *user_data) {
@@ -70,7 +70,7 @@ void mp_bluetooth_hci_poll_in_ms(uint32_t ms) {
 STATIC mp_obj_t run_events_scheduled_task(mp_obj_t none_in) {
     (void)none_in;
     events_task_is_scheduled = false;
-    // This will process all buffered HCI UART data, and run any callouts or events.
+    // This will process all HCI data, and run any callouts or events.
     mp_bluetooth_hci_poll();
     return mp_const_none;
 }
@@ -88,7 +88,13 @@ void mp_bluetooth_hci_poll_now(void) {
     }
 }
 
+#if HCI_UART
 mp_obj_t mp_bthci_uart;
+
+STATIC void mp_bluetooth_hci_start_polling(void) {
+    events_task_is_scheduled = false;
+    mp_bluetooth_hci_poll_now();
+}
 
 int mp_bluetooth_hci_uart_init(uint32_t port, uint32_t baudrate) {
     debug_printf("mp_bluetooth_hci_uart_init\n");
@@ -118,11 +124,6 @@ int mp_bluetooth_hci_uart_deinit(void) {
         cancel_alarm(poll_timer_id);
     }
     poll_timer_id = 0;
-    return 0;
-}
-
-int mp_bluetooth_hci_uart_set_baudrate(uint32_t baudrate) {
-    debug_printf("mp_bluetooth_hci_uart_set_baudrate(%lu)\n", baudrate);
     return 0;
 }
 
@@ -170,6 +171,12 @@ int mp_bluetooth_hci_uart_readchar(void) {
         return -1;
     }
 }
+
+int mp_bluetooth_hci_uart_set_baudrate(uint32_t baudrate) {
+    debug_printf("mp_bluetooth_hci_uart_set_baudrate(%lu)\n", baudrate);
+    return 0;
+}
+#endif
 
 // Default (weak) implementation of the HCI controller interface.
 // A driver (e.g. cywbt43.c) can override these for controller-specific

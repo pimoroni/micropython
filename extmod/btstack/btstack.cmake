@@ -16,7 +16,6 @@ target_include_directories(micropy_extmod_btstack INTERFACE
 )
 
 target_sources(micropy_extmod_btstack INTERFACE
-    ${BTSTACK_EXTMOD_DIR}/btstack_hci_uart.c
     ${BTSTACK_LIB_DIR}/src/ad_parser.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/ancs_client.c
     ${BTSTACK_LIB_DIR}/src/ble/att_db.c
@@ -24,7 +23,7 @@ target_sources(micropy_extmod_btstack INTERFACE
     ${BTSTACK_LIB_DIR}/src/ble/att_dispatch.c
     ${BTSTACK_LIB_DIR}/src/ble/att_server.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/battery_service_server.c
-    #${BTSTACK_LIB_DIR}/src/ble/gatt-service/cycling_power_service_server.c
+    ${BTSTACK_LIB_DIR}/src/ble/gatt-service/cycling_power_service_server.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/cycling_speed_and_cadence_service_server.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/device_information_service_server.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/heart_rate_service_server.c
@@ -35,7 +34,6 @@ target_sources(micropy_extmod_btstack INTERFACE
     ${BTSTACK_LIB_DIR}/src/ble/gatt-service/ublox_spp_service_server.c
     ${BTSTACK_LIB_DIR}/src/ble/gatt_client.c
     ${BTSTACK_LIB_DIR}/src/ble/le_device_db_memory.c
-    #${BTSTACK_LIB_DIR}/src/ble/le_device_db_tlv.c
     ${BTSTACK_LIB_DIR}/src/ble/sm.c
     ${BTSTACK_LIB_DIR}/src/btstack_audio.c
     ${BTSTACK_LIB_DIR}/src/btstack_base64_decoder.c
@@ -57,7 +55,6 @@ target_sources(micropy_extmod_btstack INTERFACE
     ${BTSTACK_LIB_DIR}/src/hci_dump.c
     ${BTSTACK_LIB_DIR}/src/hci_transport_em9304_spi.c
     ${BTSTACK_LIB_DIR}/src/hci_transport_h4.c
-    #${BTSTACK_LIB_DIR}/src/hci_transport_h5.c
     ${BTSTACK_LIB_DIR}/src/l2cap.c
     ${BTSTACK_LIB_DIR}/src/l2cap_signaling.c
 )

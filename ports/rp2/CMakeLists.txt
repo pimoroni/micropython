@@ -167,6 +167,7 @@ set(PICO_SDK_COMPONENTS
     hardware_pll
     hardware_pwm
     hardware_regs
+    hardware_vreg
     hardware_rtc
     hardware_spi
     hardware_structs

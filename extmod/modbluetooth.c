@@ -292,11 +292,17 @@ STATIC mp_obj_t bluetooth_ble_active(size_t n_args, const mp_obj_t *args) {
     if (n_args == 2) {
         // Boolean enable/disable argument supplied, set current state.
         if (mp_obj_is_true(args[1])) {
+            #ifdef mp_hal_network_check_allowed
+            mp_hal_network_check_allowed(MP_QSTR_BLE);
+            #endif
             int err = mp_bluetooth_init();
             bluetooth_handle_errno(err);
         } else {
             mp_bluetooth_deinit();
         }
+        #ifdef mp_hal_network_set_active
+        mp_hal_network_set_active(MP_QSTR_BLE, mp_obj_is_true(args[1]));
+        #endif
     }
     // Return current state.
     return mp_obj_new_bool(mp_bluetooth_is_active());

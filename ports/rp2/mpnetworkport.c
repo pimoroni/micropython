@@ -122,3 +122,44 @@ void mod_network_lwip_init(void) {
 }
 
 #endif // MICROPY_PY_LWIP
+
+#if MICROPY_PY_BLUETOOTH_CYW43
+#define RP2_NETWORK_BLE 0x1
+#define RP2_NETWORK_STA 0x2
+#define RP2_NETWORK_AP  0x4
+static uint32_t rp2_active_network_flags = 0;
+static inline uint32_t rp2_hal_network_flag(qstr net) {
+    switch (net) {
+        case MP_QSTR_BLE:
+            return RP2_NETWORK_BLE;
+        case MP_QSTR_STA_IF:
+            return RP2_NETWORK_STA;
+        case MP_QSTR_AP_IF:
+            return RP2_NETWORK_AP;
+    }
+    return 0;
+}
+void rp2_hal_network_check_allowed(qstr net) {
+    bool blocked = false;
+    uint32_t net_flag = rp2_hal_network_flag(net);
+    if ((net_flag & RP2_NETWORK_BLE) && (rp2_active_network_flags & ~RP2_NETWORK_BLE) != 0) {
+        blocked = true;
+    } else if ((net_flag & (RP2_NETWORK_STA | RP2_NETWORK_AP)) && (rp2_active_network_flags & ~(RP2_NETWORK_STA | RP2_NETWORK_AP)) != 0) {
+        blocked = true;
+    }
+    if (blocked) {
+        mp_raise_ValueError(MP_ERROR_TEXT("Network blocked"));
+    }
+}
+void rp2_hal_network_set_active(qstr net, bool active) {
+    uint32_t net_flag = rp2_hal_network_flag(net);
+    if (active) {
+        rp2_active_network_flags |= net_flag;
+    } else {
+        rp2_active_network_flags &= ~net_flag;
+    }
+}
+void mp_hal_network_clear_active(void) {
+    rp2_active_network_flags = 0;
+}
+#endif

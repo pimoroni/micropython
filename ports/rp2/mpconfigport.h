@@ -281,4 +281,12 @@ extern void lwip_lock_release(void);
 // Bluetooth code only runs in the scheduler, no locking/mutex required.
 #define MICROPY_PY_BLUETOOTH_ENTER uint32_t atomic_state = 0;
 #define MICROPY_PY_BLUETOOTH_EXIT (void)atomic_state;
+
+// Prevent BT+Wifi being active at the same time
+#define mp_hal_network_check_allowed rp2_hal_network_check_allowed
+#define mp_hal_network_set_active rp2_hal_network_set_active
+#define mp_hal_network_clear_active rp2_hal_network_clear_active
+void rp2_hal_network_check_allowed(size_t qstr);
+void rp2_hal_network_set_active(size_t qstr, bool active);
+void rp2_hal_network_clear_active(void);
 #endif

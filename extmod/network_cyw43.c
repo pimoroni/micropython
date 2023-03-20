@@ -116,13 +116,27 @@ STATIC mp_obj_t network_cyw43_deinit(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_cyw43_deinit_obj, network_cyw43_deinit);
 
+STATIC void network_cyw43_set_active(network_cyw43_obj_t *self, bool active) {
+    #ifdef mp_hal_network_check_allowed
+    if (active && self->itf == CYW43_ITF_AP) {
+        mp_hal_network_check_allowed(MP_QSTR_AP_IF);
+    }
+    #endif
+    uint32_t country = CYW43_COUNTRY(mod_network_country_code[0], mod_network_country_code[1], 0);
+    cyw43_wifi_set_up(self->cyw, self->itf, active, country);
+    #ifdef mp_hal_network_set_active
+    if (self->itf == CYW43_ITF_AP) {
+        mp_hal_network_set_active(MP_QSTR_AP_IF, active);
+    }
+    #endif
+}
+
 STATIC mp_obj_t network_cyw43_active(size_t n_args, const mp_obj_t *args) {
     network_cyw43_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     if (n_args == 1) {
         return mp_obj_new_bool(cyw43_tcpip_link_status(self->cyw, self->itf));
     } else {
-        uint32_t country = CYW43_COUNTRY(mod_network_country_code[0], mod_network_country_code[1], 0);
-        cyw43_wifi_set_up(self->cyw, self->itf, mp_obj_is_true(args[1]), country);
+        network_cyw43_set_active(self, mp_obj_is_true(args[1]));
         return mp_const_none;
     }
 }
@@ -231,7 +245,22 @@ STATIC mp_obj_t network_cyw43_connect(size_t n_args, const mp_obj_t *pos_args, m
 
     network_cyw43_obj_t *self = MP_OBJ_TO_PTR(pos_args[0]);
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
-    mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    if (self->itf == CYW43_ITF_STA) {
+        mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    }
+
+    // set active if not done already
+    if (!cyw43_tcpip_link_status(self->cyw, self->itf)) {
+        network_cyw43_set_active(self, true);
+    }
+
+    // Nothing (more) to do for AP mode
+    if (self->itf == CYW43_ITF_AP) {
+        return mp_const_none;
+    }
+    #ifdef mp_hal_network_check_allowed
+    mp_hal_network_check_allowed(MP_QSTR_STA_IF);
+    #endif
 
     // Deprecated kwarg
     if (args[ARG_auth].u_int != -1) {
@@ -280,13 +309,26 @@ STATIC mp_obj_t network_cyw43_connect(size_t n_args, const mp_obj_t *pos_args, m
     if (ret != 0) {
         mp_raise_OSError(-ret);
     }
+    #ifdef mp_hal_network_set_active
+    mp_hal_network_set_active(MP_QSTR_STA_IF, true);
+    #endif
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(network_cyw43_connect_obj, 1, network_cyw43_connect);
 
 STATIC mp_obj_t network_cyw43_disconnect(mp_obj_t self_in) {
     network_cyw43_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    // Disconnect for AP means active(False)
+    if (self->itf == CYW43_ITF_AP) {
+        network_cyw43_set_active(self, false);
+        return mp_const_none;
+    }
+
     cyw43_wifi_leave(self->cyw, self->itf);
+    #ifdef mp_hal_network_set_active
+    mp_hal_network_set_active(MP_QSTR_STA_IF, false);
+    #endif
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(network_cyw43_disconnect_obj, network_cyw43_disconnect);

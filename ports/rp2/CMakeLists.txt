@@ -365,6 +365,15 @@ target_compile_options(${MICROPY_TARGET} PRIVATE
     -Werror
 )
 
+# Do not include stack unwinding & exception handling for C++ user modules
+target_compile_definitions(usermod INTERFACE PICO_CXX_ENABLE_EXCEPTIONS=0)
+target_compile_options(usermod INTERFACE $<$<COMPILE_LANGUAGE:CXX>:
+    -fno-exceptions
+    -fno-unwind-tables
+    -fno-rtti
+    -fno-use-cxa-atexit
+>)
+
 set_source_files_properties(
     ${PICO_SDK_PATH}/src/rp2_common/pico_double/double_math.c
     ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_math.c

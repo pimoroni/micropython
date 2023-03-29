@@ -68,6 +68,7 @@ include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 # Define the top-level project
 project(${MICROPY_TARGET})
 
+set(SKIP_PICO_MALLOC 1)
 pico_sdk_init()
 
 include(${MICROPY_DIR}/py/usermod.cmake)
@@ -108,6 +109,7 @@ set(MICROPY_SOURCE_DRIVERS
 )
 
 set(MICROPY_SOURCE_PORT
+    malloc.c
     fatfs_port.c
     machine_adc.c
     machine_bitstream.c
@@ -141,6 +143,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_DIR}/shared/readline/readline.c
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
+    ${PROJECT_SOURCE_DIR}/malloc.c
     ${PROJECT_SOURCE_DIR}/machine_adc.c
     ${PROJECT_SOURCE_DIR}/machine_i2c.c
     ${PROJECT_SOURCE_DIR}/machine_i2s.c
@@ -158,6 +161,11 @@ set(MICROPY_SOURCE_QSTR
     ${PROJECT_SOURCE_DIR}/rp2_pio.c
     ${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c
 )
+
+target_link_options(${MICROPY_TARGET} PRIVATE "LINKER:--wrap=malloc")
+target_link_options(${MICROPY_TARGET} PRIVATE "LINKER:--wrap=calloc")
+target_link_options(${MICROPY_TARGET} PRIVATE "LINKER:--wrap=realloc")
+target_link_options(${MICROPY_TARGET} PRIVATE "LINKER:--wrap=free")
 
 set(PICO_SDK_COMPONENTS
     cmsis_core

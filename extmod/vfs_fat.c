@@ -39,6 +39,7 @@
 #include <string.h>
 #include "py/runtime.h"
 #include "py/mperrno.h"
+#include "py/objstr.h"
 #include "lib/oofatfs/ff.h"
 #include "extmod/vfs_fat.h"
 #include "shared/timeutils/timeutils.h"
@@ -374,6 +375,20 @@ STATIC mp_obj_t fat_vfs_statvfs(mp_obj_t vfs_in, mp_obj_t path_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(fat_vfs_statvfs_obj, fat_vfs_statvfs);
 
+STATIC mp_obj_t fat_vfs_label(mp_obj_t vfs_in, mp_obj_t label) {
+    mp_obj_fat_vfs_t *self = MP_OBJ_TO_PTR(vfs_in);
+
+    GET_STR_DATA_LEN(label, str_data, str_len);
+
+    FRESULT res = f_setlabel(&self->fatfs, (const char*)str_data);
+    if (FR_OK != res) {
+        mp_raise_OSError(fresult_to_errno_table[res]);
+    }
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(fat_vfs_label_obj, fat_vfs_label);
+
 STATIC mp_obj_t vfs_fat_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     fs_user_mount_t *self = MP_OBJ_TO_PTR(self_in);
 
@@ -422,6 +437,7 @@ STATIC const mp_rom_map_elem_t fat_vfs_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rename), MP_ROM_PTR(&fat_vfs_rename_obj) },
     { MP_ROM_QSTR(MP_QSTR_stat), MP_ROM_PTR(&fat_vfs_stat_obj) },
     { MP_ROM_QSTR(MP_QSTR_statvfs), MP_ROM_PTR(&fat_vfs_statvfs_obj) },
+    { MP_ROM_QSTR(MP_QSTR_label), MP_ROM_PTR(&fat_vfs_label_obj) },
     { MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_fat_mount_obj) },
     { MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&fat_vfs_umount_obj) },
 };

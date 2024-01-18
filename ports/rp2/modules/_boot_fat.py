@@ -8,6 +8,8 @@ try:
     vfs.mount(vfs.VfsFat(bdev), "/")
 except:
     vfs.VfsFat.mkfs(bdev)
-    vfs.mount(vfs.VfsFat(bdev), "/")
+    msc = vfs.VfsFat(bdev)
+    msc.label("RP2_MSC")
+    vfs.mount(msc, "/")
 
 del vfs, bdev

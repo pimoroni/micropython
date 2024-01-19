@@ -1,9 +1,12 @@
 import os
 import machine, rp2
 
-# 1441792
-bdev_root = rp2.Flash(start=0, len=4096 * 100)
-bdev_storage = rp2.Flash(start=4096 * 100, len=4096 * 250)
+blocks_root = 100
+blocks_total = rp2.Flash().ioctl(4, None)
+block_size = rp2.Flash().ioctl(5, None)
+blocks_storage = blocks_total - blocks_root
+bdev_root = rp2.Flash(start=0, len=block_size * blocks_root)
+bdev_storage = rp2.Flash(start=block_size * blocks_root, len=block_size * blocks_storage)
 
 try:
     vfs_root = os.VfsFat(bdev_root)

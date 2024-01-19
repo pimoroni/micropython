@@ -38,6 +38,7 @@
 #define BLOCK_COUNT         (MICROPY_HW_FLASH_STORAGE_BYTES / BLOCK_SIZE)
 #define FLASH_BASE_ADDR     (PICO_FLASH_SIZE_BYTES - MICROPY_HW_FLASH_STORAGE_BYTES)
 #define FLASH_MMAP_ADDR     (XIP_BASE + FLASH_BASE_ADDR)
+#define ROOT_BLOCK_COUNT    100
 
 static bool ejected = false;
 
@@ -75,7 +76,7 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun) {
 void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_size) {
     *block_size = BLOCK_SIZE;
     //*block_count = BLOCK_COUNT;
-    *block_count = (lun == 1) ? 250 : 100;
+    *block_count = (lun == 1) ? (BLOCK_COUNT - ROOT_BLOCK_COUNT) : ROOT_BLOCK_COUNT;
 }
 
 // Invoked when received Start Stop Unit command
@@ -98,7 +99,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
-    uint32_t lun_offset = lun == 1 ? 100 : 0;
+    uint32_t lun_offset = lun == 1 ? ROOT_BLOCK_COUNT : 0;
     memcpy(buffer, (void *)(FLASH_MMAP_ADDR + (lun_offset + lba) * BLOCK_SIZE), count * BLOCK_SIZE);
     return count * BLOCK_SIZE;
 }
@@ -107,7 +108,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
-    uint32_t lun_offset = lun == 1 ? 100 : 0;
+    uint32_t lun_offset = lun == 1 ? ROOT_BLOCK_COUNT : 0;
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(FLASH_BASE_ADDR + (lun_offset + lba) * BLOCK_SIZE, count * BLOCK_SIZE);
     flash_range_program(FLASH_BASE_ADDR + (lun_offset + lba) * BLOCK_SIZE, buffer, count * BLOCK_SIZE);

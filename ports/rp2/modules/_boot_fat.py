@@ -12,8 +12,7 @@ except:
     os.VfsFat.mkfs(bdev_root)
     vfs_root = os.VfsFat(bdev_root)
     vfs_root.label("Root")
-
-os.mount(vfs_root, "/", readonly=True)
+    os.mount(vfs_root, "/", readonly=True)
 
 try:
     vfs_storage = os.VfsFat(bdev_storage)
@@ -22,7 +21,6 @@ except:
     os.VfsFat.mkfs(bdev_storage)
     vfs_storage = os.VfsFat(bdev_storage)
     vfs_storage.label("Storage")
-
-os.mount(vfs_storage, "/storage")
+    os.mount(vfs_storage, "/storage")
 
 del os, bdev_root, bdev_storage, vfs_storage, vfs_root

@@ -41,6 +41,17 @@
 
 static bool ejected = false;
 
+// Invoked to determine max LUN
+uint8_t tud_msc_get_maxlun_cb(void)
+{
+  return 2; // dual LUN
+}
+
+bool tud_msc_is_writable_cb (uint8_t lun)
+{
+  return lun == 0; // Only BOOT is writable from host, storage is not
+}
+
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
@@ -63,7 +74,8 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun) {
 // Application update block count and block size
 void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_size) {
     *block_size = BLOCK_SIZE;
-    *block_count = BLOCK_COUNT;
+    //*block_count = BLOCK_COUNT;
+    *block_count = (lun == 1) ? 250 : 100;
 }
 
 // Invoked when received Start Stop Unit command
@@ -86,7 +98,8 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
-    memcpy(buffer, (void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), count * BLOCK_SIZE);
+    uint32_t lun_offset = lun == 1 ? 100 : 0;
+    memcpy(buffer, (void *)(FLASH_MMAP_ADDR + (lun_offset + lba) * BLOCK_SIZE), count * BLOCK_SIZE);
     return count * BLOCK_SIZE;
 }
 
@@ -94,9 +107,10 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
+    uint32_t lun_offset = lun == 1 ? 100 : 0;
     uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);
-    flash_range_program(FLASH_BASE_ADDR + lba * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
+    flash_range_erase(FLASH_BASE_ADDR + (lun_offset + lba) * BLOCK_SIZE, count * BLOCK_SIZE);
+    flash_range_program(FLASH_BASE_ADDR + (lun_offset + lba) * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
     restore_interrupts(ints);
     return count * BLOCK_SIZE;
 }

@@ -245,6 +245,7 @@ if(PICO_RP2040)
 elseif(PICO_RP2350)
     target_sources(pico_float_micropython INTERFACE
         ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_aeabi_dcp.S
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_conv_m33.S
     )
 endif()
 

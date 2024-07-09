@@ -60,14 +60,13 @@
 #endif
 #if PICO_RP2040
 #include "RP2040.h" // cmsis, for PendSV_IRQn and SCB/SCB_SCR_SEVONPEND_Msk
-#include "hardware/rtc.h"
 #elif PICO_RP2350
 #include "RP2350.h" // cmsis, for PendSV_IRQn and SCB/SCB_SCR_SEVONPEND_Msk
-#include "pico/aon_timer.h"
-#include "shared/timeutils/timeutils.h"
 #else
 #error Unknown processor
 #endif
+#include "pico/aon_timer.h"
+#include "shared/timeutils/timeutils.h"
 
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;

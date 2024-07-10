@@ -298,7 +298,7 @@ static mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
                 mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("invalid pin af: %d"), af);
             }
             gpio_set_function(self->id, af);
-            machine_pin_open_drain_mask &= ~(1 << self->id);
+            machine_pin_open_drain_mask &= ~(1ULL << self->id);
         }
     }
 
@@ -380,7 +380,7 @@ static mp_obj_t machine_pin_low(mp_obj_t self_in) {
     } else if (GPIO_IS_OPEN_DRAIN(self->id)) {
         gpio_set_dir(self->id, GPIO_OUT);
     } else {
-        gpio_clr_mask(1u << self->id);
+        gpio_clr_mask64(1ULL << self->id);
     }
     return mp_const_none;
 }
@@ -396,7 +396,7 @@ static mp_obj_t machine_pin_high(mp_obj_t self_in) {
     } else if (GPIO_IS_OPEN_DRAIN(self->id)) {
         gpio_set_dir(self->id, GPIO_IN);
     } else {
-        gpio_set_mask(1u << self->id);
+        gpio_set_mask64(1ULL << self->id);
     }
     return mp_const_none;
 }
@@ -417,7 +417,7 @@ static mp_obj_t machine_pin_toggle(mp_obj_t self_in) {
             gpio_set_dir(self->id, GPIO_OUT);
         }
     } else {
-        gpio_xor_mask(1u << self->id);
+        gpio_xor_mask64(1ULL << self->id);
     }
     return mp_const_none;
 }

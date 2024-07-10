@@ -396,7 +396,9 @@ static mp_obj_t rp2_pio_gpio_base(mp_obj_t self_in, mp_obj_t gpio_base_in) {
     }
 
     // Read back with pio->gpiobase
-    pio_set_gpio_base(self->pio, gpio_base);
+    if (pio_set_gpio_base(self->pio, gpio_base) != PICO_OK) {
+        mp_raise_ValueError("failed to set pio gpio base");
+    }
 
     return mp_const_none;
 }

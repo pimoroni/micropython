@@ -180,6 +180,8 @@ static MP_DEFINE_CONST_FUN_OBJ_1(network_ppp_status_obj, network_ppp_status);
 static u32_t network_ppp_output_callback(ppp_pcb *pcb, const void *data, u32_t len, void *ctx) {
     network_ppp_obj_t *self = ctx;
     int err;
+    // The return value from this output callback is the number of bytes written out.
+    // If it's less than the requested number of bytes then lwIP will propagate out an error.
     return mp_stream_rw(self->stream, (void *)data, len, &err, MP_STREAM_RW_WRITE);
 }
 

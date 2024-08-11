@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "rp2_psram.h"
+#include "rp2_flash.h"
 #include "py/compile.h"
 #include "py/cstack.h"
 #include "py/runtime.h"
@@ -90,6 +91,9 @@ int main(int argc, char **argv) {
 
     // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
     set_sys_clock_khz(125000, false);
+
+    // Set the flash divisor to an appropriate value
+    rp2_flash_set_timing();
 
     #if MICROPY_HW_ENABLE_UART_REPL
     bi_decl(bi_program_feature("UART REPL"))

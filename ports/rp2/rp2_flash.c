@@ -33,6 +33,7 @@
 #include "modrp2.h"
 #include "hardware/flash.h"
 #include "pico/binary_info.h"
+#include "rp2_psram.h"
 
 #define BLOCK_SIZE_BYTES (FLASH_SECTOR_SIZE)
 
@@ -96,7 +97,20 @@ static uint32_t begin_critical_flash_section(void) {
     if (use_multicore_lockout()) {
         multicore_lockout_start_blocking();
     }
-    return save_and_disable_interrupts();
+    uint32_t state = save_and_disable_interrupts();
+
+    #if MICROPY_HW_ENABLE_PSRAM
+    // We're about to invalidate the XIP cache, clean it first to commit any dirty writes to PSRAM
+    // Use the upper 16k of the maintenance space (0x1bffc000 through 0x1bffffff) to workaround
+    // incorrect behaviour of the XIP clean operation, where it also alters the tag of the associated
+    // cache line: https://forums.raspberrypi.com/viewtopic.php?t=378249#p2263677
+    volatile uint8_t *maintenance_ptr = (volatile uint8_t *)(XIP_SRAM_BASE + (XIP_MAINTENANCE_BASE - XIP_BASE));
+    for (int i = 1; i < 16 * 1024; i += 8) {
+        maintenance_ptr[i] = 0;
+    }
+    #endif
+
+    return state;
 }
 
 static void end_critical_flash_section(uint32_t state) {
@@ -192,10 +206,37 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     } else {
         offset += mp_obj_get_int(args[3]);
     }
+
+    #if MICROPY_HW_ENABLE_PSRAM
+    if ((uintptr_t)bufinfo.buf >= SRAM_BASE) {
+    // If copying from SRAM, write direct
+    #endif
     mp_uint_t atomic_state = begin_critical_flash_section();
     flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
     end_critical_flash_section(atomic_state);
     mp_event_handle_nowait();
+    #if MICROPY_HW_ENABLE_PSRAM
+} else {
+    // If copying from PSRAM/flash, use an SRAM buffer and write in chunks
+    size_t bytes_left = bufinfo.len;
+    size_t bytes_offset = 0;
+    static uint8_t copy_buffer[FLASH_PAGE_SIZE] = {0};
+
+    while (bytes_left) {
+        memcpy(copy_buffer, bufinfo.buf + bytes_offset, MIN(bytes_left, FLASH_PAGE_SIZE));
+        mp_uint_t atomic_state = begin_critical_flash_section();
+        flash_range_program(self->flash_base + offset + bytes_offset, copy_buffer, MIN(bytes_left, FLASH_PAGE_SIZE));
+        end_critical_flash_section(atomic_state);
+        bytes_offset += FLASH_PAGE_SIZE;
+        if (bytes_left <= FLASH_PAGE_SIZE) {
+            break;
+        }
+        bytes_left -= FLASH_PAGE_SIZE;
+        mp_event_handle_nowait();
+    }
+}
+    #endif
+
     // TODO check return value
     return mp_const_none;
 }

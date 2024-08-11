@@ -33,6 +33,12 @@
 #include "modrp2.h"
 #include "hardware/flash.h"
 #include "pico/binary_info.h"
+#ifdef PICO_RP2350
+#include "hardware/structs/ioqspi.h"
+#include "hardware/structs/qmi.h"
+#else
+#include "hardware/structs/ssi.h"
+#endif
 
 #define BLOCK_SIZE_BYTES (FLASH_SECTOR_SIZE)
 
@@ -71,6 +77,48 @@ bi_decl(bi_block_device(
     BINARY_INFO_BLOCK_DEV_FLAG_WRITE |
     BINARY_INFO_BLOCK_DEV_FLAG_PT_UNKNOWN));
 
+// Function to set the flash divisor to the correct divisor, assumes interrupts disabled
+// and core1 locked out if relevant.
+static void __no_inline_not_in_flash_func(rp2_flash_set_timing_internal)(int clock_hz) {
+
+    // Use the minimum divisor assuming a 133MHz flash.
+    const int max_flash_freq = 133000000;
+    int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+
+    #if PICO_RP2350
+    // Make sure flash is deselected - QMI doesn't appear to have a busy flag(!)
+    while ((ioqspi_hw->io[1].status & IO_QSPI_GPIO_QSPI_SS_STATUS_OUTTOPAD_BITS) != IO_QSPI_GPIO_QSPI_SS_STATUS_OUTTOPAD_BITS) {
+        ;
+    }
+
+    // RX delay equal to the divisor means sampling at the same time as the next falling edge of SCK after the
+    // falling edge that generated the data.  This is pretty tight at 133MHz but seems to work with the Winbond flash chips.
+    const int rxdelay = divisor;
+    qmi_hw->m[0].timing = (1 << QMI_M0_TIMING_COOLDOWN_LSB) |
+        rxdelay << QMI_M1_TIMING_RXDELAY_LSB |
+        divisor << QMI_M1_TIMING_CLKDIV_LSB;
+
+    // Force a read through XIP to ensure the timing is applied
+    volatile uint32_t *ptr = (volatile uint32_t *)0x14000000;
+    (void)*ptr;
+    #else
+    // RP2040 SSI hardware only supports even divisors
+    if (divisor & 1) {
+        divisor += 1;
+    }
+
+    // Wait for SSI not busy
+    while (ssi_hw->sr & SSI_SR_BUSY_BITS) {
+        ;
+    }
+
+    // Disable, set the new divisor, and re-enable
+    hw_clear_bits(&ssi_hw->ssienr, SSI_SSIENR_SSI_EN_BITS);
+    ssi_hw->baudr = divisor;
+    hw_set_bits(&ssi_hw->ssienr, SSI_SSIENR_SSI_EN_BITS);
+    #endif
+}
+
 // Flash erase and write must run with interrupts disabled and the other core suspended,
 // because the XIP bit gets disabled.
 static uint32_t begin_critical_flash_section(void) {
@@ -94,6 +142,7 @@ static void end_critical_flash_section(uint32_t state) {
     #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM
     psram_init(MICROPY_HW_PSRAM_CS_PIN);
     #endif
+    rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
     restore_interrupts(state);
     if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
         multicore_lockout_end_blocking();
@@ -250,3 +299,23 @@ MP_DEFINE_CONST_OBJ_TYPE(
     make_new, rp2_flash_make_new,
     locals_dict, &rp2_flash_locals_dict
     );
+
+// Modify the flash timing.  Ensure flash access is suspended while
+// the timings are altered.
+void rp2_flash_set_timing_for_freq(int clock_hz) {
+    if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
+        multicore_lockout_start_blocking();
+    }
+    uint32_t state = save_and_disable_interrupts();
+
+    rp2_flash_set_timing_internal(clock_hz);
+
+    restore_interrupts(state);
+    if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
+        multicore_lockout_end_blocking();
+    }
+}
+
+void rp2_flash_set_timing() {
+    rp2_flash_set_timing_for_freq(clock_get_hz(clk_sys));
+}

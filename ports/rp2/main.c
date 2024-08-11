@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "rp2_psram.h"
+#include "rp2_flash.h"
 #include "py/compile.h"
 #include "py/runtime.h"
 #include "py/gc.h"
@@ -87,6 +88,9 @@ int main(int argc, char **argv) {
 
     pendsv_init();
     soft_timer_init();
+
+    // Set the flash divisor to an appropriate value
+    rp2_flash_set_timing();
 
     #if MICROPY_HW_ENABLE_UART_REPL
     bi_decl(bi_program_feature("UART REPL"))

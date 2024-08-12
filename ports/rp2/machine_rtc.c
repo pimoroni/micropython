@@ -40,6 +40,11 @@
 #include "extmod/modmachine.h"
 #include "shared/timeutils/timeutils.h"
 
+
+struct tm* __wrap_localtime_r(time_t *time, struct tm *local_time) {
+    return gmtime_r(time, local_time);
+}
+
 typedef struct _machine_rtc_obj_t {
     mp_obj_base_t base;
 } machine_rtc_obj_t;

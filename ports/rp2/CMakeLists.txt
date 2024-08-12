@@ -560,6 +560,8 @@ target_compile_definitions(${MICROPY_TARGET} PRIVATE
     PICO_NO_BI_STDIO_UART=1 # we call it UART REPL
 )
 
+target_link_options(${MICROPY_TARGET} PRIVATE "LINKER:--wrap=localtime_r")
+
 if (PICO_RP2040)
     target_compile_definitions(${MICROPY_TARGET} PRIVATE
         PICO_RP2040_USB_DEVICE_ENUMERATION_FIX=1

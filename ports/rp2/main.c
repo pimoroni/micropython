@@ -29,11 +29,11 @@
 #include "rp2_psram.h"
 #include "rp2_flash.h"
 #include "py/compile.h"
+#include "py/cstack.h"
 #include "py/runtime.h"
 #include "py/gc.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
-#include "py/stackctrl.h"
 #include "extmod/modbluetooth.h"
 #include "extmod/modnetwork.h"
 #include "shared/readline/readline.h"
@@ -91,6 +91,8 @@ int main(int argc, char **argv) {
 
     // Set the flash divisor to an appropriate value
     rp2_flash_set_timing();
+    // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
+    set_sys_clock_khz(125000, false);
 
     #if MICROPY_HW_ENABLE_UART_REPL
     bi_decl(bi_program_feature("UART REPL"))
@@ -118,8 +120,7 @@ int main(int argc, char **argv) {
     mp_hal_time_ns_set_from_rtc();
 
     // Initialise stack extents and GC heap.
-    mp_stack_set_top(&__StackTop);
-    mp_stack_set_limit(&__StackTop - &__StackBottom - 256);
+    mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
 
     #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM
     size_t psram_size = psram_init(MICROPY_HW_PSRAM_CS_PIN);
@@ -251,6 +252,10 @@ int main(int argc, char **argv) {
 
         gc_sweep_all();
         mp_deinit();
+        #if MICROPY_HW_ENABLE_UART_REPL
+        setup_default_uart();
+        mp_uart_init();
+        #endif
     }
 
     return 0;

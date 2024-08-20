@@ -83,4 +83,7 @@ typedef uint32_t sys_prot_t;
 // needed for PPP
 #define sys_jiffies sys_now
 
+#define LWIP_DEBUG 1
+#define PPP_DEBUG LWIP_DBG_ON
+
 #endif // MICROPY_INCLUDED_STM32_LWIP_LWIPOPTS_H

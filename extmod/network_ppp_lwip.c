@@ -36,6 +36,8 @@
 #include "netif/ppp/pppapi.h"
 #include "netif/ppp/pppos.h"
 
+#define PPP_TRACE_IN_OUT (1)
+
 typedef enum {
     STATE_INACTIVE,
     STATE_ACTIVE,
@@ -118,19 +120,31 @@ static MP_DEFINE_CONST_FUN_OBJ_1(network_ppp___del___obj, network_ppp___del__);
 
 static mp_obj_t network_ppp_poll(size_t n_args, const mp_obj_t *args) {
     network_ppp_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    uint8_t buf[256];
 
     if (self->state <= STATE_ERROR) {
         return MP_OBJ_NEW_SMALL_INT(-MP_EPERM);
     }
 
-    int err;
-    mp_uint_t len = mp_stream_rw(self->stream, buf, sizeof(buf), &err, 0);
-    if (len > 0) {
+    mp_int_t total_len = 0;
+    for (;;) {
+        uint8_t buf[256];
+        int err;
+        mp_uint_t len = mp_stream_rw(self->stream, buf, sizeof(buf), &err, 0);
+        if (len == 0) {
+            break;
+        }
+        #if PPP_TRACE_IN_OUT
+        mp_printf(&mp_plat_print, "ppp_in(n=%u,data=", len);
+        for (size_t i = 0; i < len; ++i) {
+            mp_printf(&mp_plat_print, "%02x:", buf[i]);
+        }
+        mp_printf(&mp_plat_print, ")\n");
+        #endif
         pppos_input(self->pcb, (u8_t *)buf, len);
+        total_len += len;
     }
 
-    return MP_OBJ_NEW_SMALL_INT(len);
+    return MP_OBJ_NEW_SMALL_INT(total_len);
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_ppp_poll_obj, 1, 2, network_ppp_poll);
 
@@ -179,6 +193,13 @@ static MP_DEFINE_CONST_FUN_OBJ_1(network_ppp_status_obj, network_ppp_status);
 
 static u32_t network_ppp_output_callback(ppp_pcb *pcb, const void *data, u32_t len, void *ctx) {
     network_ppp_obj_t *self = ctx;
+    #if PPP_TRACE_IN_OUT
+    mp_printf(&mp_plat_print, "ppp_out(n=%u,data=", len);
+    for (size_t i = 0; i < len; ++i) {
+        mp_printf(&mp_plat_print, "%02x:", ((const uint8_t *)data)[i]);
+    }
+    mp_printf(&mp_plat_print, ")\n");
+    #endif
     int err;
     // The return value from this output callback is the number of bytes written out.
     // If it's less than the requested number of bytes then lwIP will propagate out an error.

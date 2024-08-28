@@ -128,8 +128,8 @@ static void mp_machine_set_freq(size_t n_args, const mp_obj_t *args) {
     setup_default_uart();
     mp_uart_init();
     #endif
-    #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM
-    psram_init(MICROPY_HW_PSRAM_CS_PIN);
+    #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM && defined(MICROPY_HW_PSRAM_MAX_SCK_HZ)
+    rp2_psram_set_timing(MICROPY_HW_PSRAM_MAX_SCK_HZ);
     #endif
 }
 

@@ -140,8 +140,9 @@ static uint32_t begin_critical_flash_section(void) {
 
 static void end_critical_flash_section(uint32_t state) {
     rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
-    #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM
-    psram_init(MICROPY_HW_PSRAM_CS_PIN);
+    #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM && defined(MICROPY_HW_PSRAM_MAX_SCK_HZ)
+    // update timing for PSRAM
+    rp2_psram_set_timing(MICROPY_HW_PSRAM_MAX_SCK_HZ);
     #endif
     restore_interrupts(state);
     if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {

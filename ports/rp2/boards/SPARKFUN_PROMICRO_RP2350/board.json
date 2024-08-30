@@ -1,0 +1,21 @@
+{
+    "deploy": [
+        "../deploy.md"
+    ],
+    "docs": "",
+    "features": [
+        "Dual-core",
+        "External Flash",
+        "JST-SH",
+        "RGB LED",
+        "USB-C"
+    ],
+    "images": [
+        "17745-SparkFun_Thing_Plus_-_RP2040-01a.jpg"
+    ],
+    "mcu": "rp2350",
+    "product": "Pro Micro RP2350",
+    "thumbnail": "",
+    "url": "https://www.sparkfun.com/products/24870",
+    "vendor": "Sparkfun"
+}

@@ -41,7 +41,7 @@
 // The origin of this logic is from the Circuit Python code that was downloaded from:
 //     https://github.com/raspberrypi/pico-sdk-rp2350/issues/12#issuecomment-2055274428
 //
-// The returnedID for the above IC
+// The returned ID value for the above IC
 const uint8_t PSRAM_ID = 0x5D;
 
 // From the above datasheet, PSRAM SPI command codes
@@ -57,7 +57,7 @@ const uint8_t PSRAM_CMD_NOOP = 0xFF;
 
 
 // For PSRAM timing calculations - to use int math, we work in femto seconds (fs) (1e-15),
-// NOTE: This idea is from micro python work on psram..
+// NOTE: This idea is from micro python work on psram support.
 
 #define SEC_TO_FS 1000000000000000ll
 

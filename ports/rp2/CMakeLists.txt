@@ -539,6 +539,12 @@ set_source_files_properties(
 )
 
 set_source_files_properties(
+    rp2_pio.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-error=discarded-qualifiers"
+)
+
+set_source_files_properties(
     ${PICO_SDK_PATH}/src/rp2_common/pico_double/double_math.c
     ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_math.c
     PROPERTIES

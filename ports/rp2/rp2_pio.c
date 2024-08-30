@@ -32,10 +32,14 @@
 #include "py/mphal.h"
 #include "shared/runtime/mpirq.h"
 #include "modrp2.h"
+#include "machine_pin.h"
+#include "genhdr/pins.h"
 
 #include "hardware/clocks.h"
 #include "hardware/irq.h"
 #include "hardware/pio.h"
+
+extern const machine_pin_obj_t machine_pin_obj_table[NUM_BANK0_GPIOS];
 
 typedef struct _rp2_pio_obj_t {
     mp_obj_base_t base;

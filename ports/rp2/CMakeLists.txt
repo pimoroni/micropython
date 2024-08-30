@@ -147,6 +147,7 @@ set(MICROPY_SOURCE_DRIVERS
 
 set(MICROPY_SOURCE_PORT
     clocks_extra.c
+    datetime_patch.c
     fatfs_port.c
     help.c
     machine_bitstream.c
@@ -535,6 +536,12 @@ set_source_files_properties(
     ${MICROPY_PY_DIR}/vm.c
     PROPERTIES
     COMPILE_OPTIONS "-O2"
+)
+
+set_source_files_properties(
+    rp2_pio.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-error=discarded-qualifiers"
 )
 
 set_source_files_properties(

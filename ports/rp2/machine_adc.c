@@ -31,11 +31,8 @@
 #include "hardware/adc.h"
 #include "machine_pin.h"
 
-#define ADC_CHANNEL_COUNT (NUM_ADC_CHANNELS - 1)
-
-#define ADC_IS_VALID_GPIO(gpio) ((gpio) >= ADC_BASE_PIN && (gpio) < (ADC_BASE_PIN + ADC_CHANNEL_COUNT))
+#define ADC_IS_VALID_GPIO(gpio) ((gpio) >= ADC_BASE_PIN && (gpio) < (ADC_BASE_PIN + NUM_ADC_CHANNELS))
 #define ADC_CHANNEL_FROM_GPIO(gpio) ((gpio) - ADC_BASE_PIN)
-
 
 static uint16_t adc_config_and_read_u16(uint32_t channel) {
     adc_select_input(channel);
@@ -77,7 +74,7 @@ static mp_obj_t mp_machine_adc_make_new(const mp_obj_type_t *type, size_t n_args
 
     if (mp_obj_is_int(source)) {
         channel = mp_obj_get_int(source);
-        if (!(channel >= 0 && channel < ADC_CHANNEL_COUNT)) {
+        if (!(channel >= 0 && channel < NUM_ADC_CHANNELS)) {
             // Not a valid ADC channel, fallback to searching for a pin.
             channel = -1;
         }

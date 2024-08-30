@@ -428,10 +428,10 @@ void mp_usbd_init(void) {
     }
 
     if (need_usb) {
-        tusb_init(); // Safe to call redundantly
-        tud_cdc_configure_fifo_t cfg = { .rx_persistent = 0, .tx_persistent = 1 };
-        tud_cdc_configure_fifo(&cfg);
-        tud_connect(); // Reconnect if mp_usbd_deinit() has disconnected
+        // The following will call tusb_init(), which is safe to call redundantly.
+        mp_usbd_init_tud();
+        // Reconnect if mp_usbd_deinit() has disconnected.
+        tud_connect();
     }
 }
 

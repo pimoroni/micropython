@@ -32,10 +32,14 @@
 #include "py/mphal.h"
 #include "shared/runtime/mpirq.h"
 #include "modrp2.h"
+#include "machine_pin.h"
+#include "genhdr/pins.h"
 
 #include "hardware/clocks.h"
 #include "hardware/irq.h"
 #include "hardware/pio.h"
+
+extern const machine_pin_obj_t machine_pin_obj_table[NUM_BANK0_GPIOS];
 
 typedef struct _rp2_pio_obj_t {
     mp_obj_base_t base;
@@ -232,7 +236,7 @@ static void asm_pio_override_shiftctrl(mp_obj_t arg, uint32_t bits, uint32_t lsb
     }
 }
 
-static void asm_pio_get_pins(const char *type, mp_obj_t prog_pins, mp_obj_t arg_base, asm_pio_config_t *config) {
+static void asm_pio_get_pins(PIO pio, const char *type, mp_obj_t prog_pins, mp_obj_t arg_base, asm_pio_config_t *config) {
     if (prog_pins != mp_const_none) {
         // The PIO program specified pins for initialisation on out/set/sideset.
         if (mp_obj_is_integer(prog_pins)) {
@@ -258,11 +262,18 @@ static void asm_pio_get_pins(const char *type, mp_obj_t prog_pins, mp_obj_t arg_
     if (arg_base != mp_const_none) {
         // The instantiation of the PIO program specified a base pin.
         config->base = mp_hal_get_pin_obj(arg_base);
+
+        #if PICO_PIO_USE_GPIO_BASE
+        // Check the base is within range of the configured gpio_base.
+        uint gpio_base = pio_get_gpio_base(pio);
+        if ((gpio_base == 0 && config->base >= 32) || (gpio_base == 16 && config->base < 16)) {
+            mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("%s_base not within gpio_base range"), type);
+        }
+        #endif
     }
 }
 
 static void asm_pio_init_gpio(PIO pio, uint32_t sm, asm_pio_config_t *config) {
-
     uint32_t pinmask = ((1 << config->count) - 1) << (config->base - pio_get_gpio_base(pio));
     pio_sm_set_pins_with_mask(pio, sm, config->pinvals << (config->base - pio_get_gpio_base(pio)), pinmask);
     pio_sm_set_pindirs_with_mask(pio, sm, config->pindirs << (config->base - pio_get_gpio_base(pio)), pinmask);
@@ -381,28 +392,29 @@ static mp_obj_t rp2_pio_state_machine(size_t n_args, const mp_obj_t *pos_args, m
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(rp2_pio_state_machine_obj, 2, rp2_pio_state_machine);
 
-#if PICO_PIO_VERSION > 0
-// PIO.gpio_base(0|16)
-static mp_obj_t rp2_pio_gpio_base(mp_obj_t self_in, mp_obj_t gpio_base_in) {
-    rp2_pio_obj_t *self = MP_OBJ_TO_PTR(self_in);
+#if PICO_PIO_USE_GPIO_BASE
+// PIO.gpio_base([base])
+static mp_obj_t rp2_pio_gpio_base(size_t n_args, const mp_obj_t *args) {
+    rp2_pio_obj_t *self = MP_OBJ_TO_PTR(args[0]);
 
-    uint8_t gpio_base = mp_obj_get_int(gpio_base_in);
+    if (n_args > 1) {
+        // Set gpio_base value.
+        uint gpio_base = mp_hal_get_pin_obj(args[1]);
 
-    // TODO check for RP2350B?
-    // Must be 0 for GPIOs 0 to 31 inclusive,
-    // or 16 for GPIOs 16 to 48 inclusive.
-    if (gpio_base != 0 && gpio_base != 16) {
-        mp_raise_ValueError("invalid GPIO base");
+        // Must be 0 for GPIOs 0 to 31 inclusive, or 16 for GPIOs 16 to 48 inclusive.
+        if (!(gpio_base == 0 || gpio_base == 16)) {
+            mp_raise_ValueError("invalid GPIO base");
+        }
+
+        if (pio_set_gpio_base(self->pio, gpio_base) != PICO_OK) {
+            mp_raise_OSError(MP_EINVAL);
+        }
     }
 
-    // Read back with pio->gpiobase
-    if (pio_set_gpio_base(self->pio, gpio_base) != PICO_OK) {
-        mp_raise_ValueError("failed to set pio gpio base");
-    }
-
-    return mp_const_none;
+    // Return current gpio_base value.
+    return pio_get_gpio_base(self->pio) == 0 ? pin_GPIO0 : pin_GPIO16;
 }
-static MP_DEFINE_CONST_FUN_OBJ_2(rp2_pio_gpio_base_obj, rp2_pio_gpio_base);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_pio_gpio_base_obj, 1, 2, rp2_pio_gpio_base);
 #endif
 
 // PIO.irq(handler=None, trigger=IRQ_SM0|IRQ_SM1|IRQ_SM2|IRQ_SM3, hard=False)
@@ -458,13 +470,13 @@ static mp_obj_t rp2_pio_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_t *k
 static MP_DEFINE_CONST_FUN_OBJ_KW(rp2_pio_irq_obj, 1, rp2_pio_irq);
 
 static const mp_rom_map_elem_t rp2_pio_locals_dict_table[] = {
+    #if PICO_PIO_USE_GPIO_BASE
+    { MP_ROM_QSTR(MP_QSTR_gpio_base), MP_ROM_PTR(&rp2_pio_gpio_base_obj) },
+    #endif
     { MP_ROM_QSTR(MP_QSTR_add_program), MP_ROM_PTR(&rp2_pio_add_program_obj) },
     { MP_ROM_QSTR(MP_QSTR_remove_program), MP_ROM_PTR(&rp2_pio_remove_program_obj) },
     { MP_ROM_QSTR(MP_QSTR_state_machine), MP_ROM_PTR(&rp2_pio_state_machine_obj) },
     { MP_ROM_QSTR(MP_QSTR_irq), MP_ROM_PTR(&rp2_pio_irq_obj) },
-    #if PICO_PIO_VERSION > 0
-    { MP_ROM_QSTR(MP_QSTR_gpio_base), MP_ROM_PTR(&rp2_pio_gpio_base_obj) },
-    #endif
 
     { MP_ROM_QSTR(MP_QSTR_IN_LOW), MP_ROM_INT(0) },
     { MP_ROM_QSTR(MP_QSTR_IN_HIGH), MP_ROM_INT(1) },
@@ -661,20 +673,14 @@ static mp_obj_t rp2_state_machine_init_helper(const rp2_state_machine_obj_t *sel
 
     // Configure out pins, if needed.
     asm_pio_config_t out_config = ASM_PIO_CONFIG_DEFAULT;
-    asm_pio_get_pins("out", prog[PROG_OUT_PINS], args[ARG_out_base].u_obj, &out_config);
-    if (out_config.base < pio_get_gpio_base(self->pio)) {
-        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("out_base should be >= gpiobase (%d)"), pio_get_gpio_base(self->pio));
-    }
+    asm_pio_get_pins(self->pio, "out", prog[PROG_OUT_PINS], args[ARG_out_base].u_obj, &out_config);
     if (out_config.base >= 0) {
         sm_config_set_out_pins(&config, out_config.base, out_config.count);
     }
 
     // Configure set pin, if needed.
     asm_pio_config_t set_config = ASM_PIO_CONFIG_DEFAULT;
-    asm_pio_get_pins("set", prog[PROG_SET_PINS], args[ARG_set_base].u_obj, &set_config);
-    if (set_config.base < pio_get_gpio_base(self->pio)) {
-        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("set_base should be >= gpiobase (%d)"), pio_get_gpio_base(self->pio));
-    }
+    asm_pio_get_pins(self->pio, "set", prog[PROG_SET_PINS], args[ARG_set_base].u_obj, &set_config);
     if (set_config.base >= 0) {
         sm_config_set_set_pins(&config, set_config.base, set_config.count);
     }
@@ -686,10 +692,7 @@ static mp_obj_t rp2_state_machine_init_helper(const rp2_state_machine_obj_t *sel
 
     // Configure sideset pin, if needed.
     asm_pio_config_t sideset_config = ASM_PIO_CONFIG_DEFAULT;
-    asm_pio_get_pins("sideset", prog[PROG_SIDESET_PINS], args[ARG_sideset_base].u_obj, &sideset_config);
-    if (sideset_config.base < pio_get_gpio_base(self->pio)) {
-        mp_raise_msg_varg(&mp_type_ValueError, MP_ERROR_TEXT("sideset_base should be >= gpiobase (%d)"), pio_get_gpio_base(self->pio));
-    }
+    asm_pio_get_pins(self->pio, "sideset", prog[PROG_SIDESET_PINS], args[ARG_sideset_base].u_obj, &sideset_config);
     if (sideset_config.base >= 0) {
         uint32_t count = sideset_config.count;
         if (config.execctrl & (1 << PIO_SM0_EXECCTRL_SIDE_EN_LSB)) {

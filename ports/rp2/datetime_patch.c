@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2017 Linaro Limited
+ * Copyright (c) 2024 Angus Gratton
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,9 +23,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "mpconfigport.h"
 
-#ifdef TEST
-#include "shared/upytesthelper/upytesthelper.h"
-#define MP_PLAT_PRINT_STRN(str, len) upytest_output(str, len)
-#endif
+#include <time.h>
+#include "py/mpconfig.h"
+#include "shared/timeutils/timeutils.h"
+
+// This is a workaround for the issue that pico-sdk datetime.c will otherwise
+// pull in a lot of libc code for time zone support.
+//
+// Upstream issue is https://github.com/raspberrypi/pico-sdk/issues/1810
+
+struct tm *localtime_r(const time_t *__restrict time, struct tm *__restrict local_time) {
+    return gmtime_r(time, local_time);
+}
+
+time_t mktime(struct tm *__restrict tm) {
+    return timeutils_mktime(tm->tm_year, tm->tm_mon, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+}

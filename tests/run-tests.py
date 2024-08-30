@@ -563,6 +563,7 @@ def run_tests(pyb, tests, args, result_dir, num_threads=1):
     # These tests don't test slice explicitly but rather use it to perform the test
     misc_slice_tests = (
         "builtin_range",
+        "bytearray1",
         "class_super",
         "containment",
         "errno1",
@@ -573,6 +574,7 @@ def run_tests(pyb, tests, args, result_dir, num_threads=1):
         "memoryview_gc",
         "object1",
         "python34",
+        "string_format_modulo",
         "struct_endian",
     )
 
@@ -674,7 +676,11 @@ def run_tests(pyb, tests, args, result_dir, num_threads=1):
                 "extmod/time_time_ns.py"
             )  # RA fsp rtc function doesn't support nano sec info
         elif args.target == "qemu-arm":
-            skip_tests.add("misc/print_exception.py")  # requires sys stdfiles
+            skip_tests.add("inlineasm/asmfpaddsub.py")  # requires Cortex-M4
+            skip_tests.add("inlineasm/asmfpcmp.py")
+            skip_tests.add("inlineasm/asmfpldrstr.py")
+            skip_tests.add("inlineasm/asmfpmuldiv.py")
+            skip_tests.add("inlineasm/asmfpsqrt.py")
         elif args.target == "qemu-riscv":
             skip_tests.add("misc/print_exception.py")  # requires sys stdfiles
         elif args.target == "webassembly":
@@ -1041,7 +1047,6 @@ the last matching regex is used:
 
     LOCAL_TARGETS = (
         "unix",
-        "qemu-arm",
         "qemu-riscv",
         "webassembly",
     )
@@ -1052,6 +1057,7 @@ the last matching regex is used:
         "esp32",
         "minimal",
         "nrf",
+        "qemu-arm",
         "renesas-ra",
         "rp2",
     )
@@ -1139,10 +1145,6 @@ the last matching regex is used:
                     "ports/unix",
                 )
             elif args.target == "qemu-arm":
-                if not args.write_exp:
-                    raise ValueError("--target=qemu-arm must be used with --write-exp")
-                # Generate expected output files for qemu run.
-                # This list should match the test_dirs tuple in tinytest-codegen.py.
                 test_dirs += (
                     "float",
                     "inlineasm",

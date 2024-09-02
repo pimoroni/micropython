@@ -7,7 +7,11 @@
 
 // This is example 1 script, which will be compiled and executed.
 static const char *example_1 =
-    "print('hello world!', list(x + 1 for x in range(10)), end='eol\\n')";
+    "import cexample\n"
+    "import cppexample\n"
+    "print(cppexample.cppfunc(10, 20))\n"
+    "print('hello world!', list(x + 1 for x in range(10)), end='eol\\n')"
+    ;
 
 // This is example 2 script, which will be compiled and executed.
 static const char *example_2 =

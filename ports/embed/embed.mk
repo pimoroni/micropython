@@ -42,13 +42,15 @@ clean-micropython-embed-package:
 	$(RM) -rf $(PACKAGE_DIR)
 
 PACKAGE_DIR ?= micropython_embed
-PACKAGE_DIR_LIST = $(addprefix $(PACKAGE_DIR)/,py extmod shared/runtime genhdr port)
+PACKAGE_DIR_LIST = $(addprefix $(PACKAGE_DIR)/,py extmod shared/runtime genhdr port usercmodule)
 
 .PHONY: micropython-embed-package
 micropython-embed-package: $(GENHDR_OUTPUT)
 	$(ECHO) "Generate micropython_embed output:"
 	$(Q)$(RM) -rf $(PACKAGE_DIR_LIST)
 	$(Q)$(MKDIR) -p $(PACKAGE_DIR_LIST)
+	$(ECHO) "- usercmodule"
+	$(Q)$(CP) -r $(USER_C_MODULES)/* $(PACKAGE_DIR)/usercmodule/
 	$(ECHO) "- py"
 	$(Q)$(CP) $(TOP)/py/*.[ch] $(PACKAGE_DIR)/py
 	$(ECHO) "- extmod"

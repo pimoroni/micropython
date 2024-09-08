@@ -21,4 +21,6 @@
 // PSRAM max frequency is based on VDD (see datasheet) - SparkFun Pro Micro RP2350 uses 3.3V => 109MHz
 #define MICROPY_HW_PSRAM_MAX_SCK_HZ (109*1000*1000)
 
+// Enable the heap split - heap is split between sram and psram memory
+#define MICROPY_GC_SPLIT_HEAP                   (1)
 // NeoPixel data GPIO25, power not toggleable

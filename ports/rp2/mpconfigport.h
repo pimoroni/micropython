@@ -223,6 +223,10 @@ extern const struct _mp_obj_type_t mp_network_cyw43_type;
     { MP_ROM_QSTR(MP_QSTR_STAT_NO_AP_FOUND), MP_ROM_INT(CYW43_LINK_NONET) }, \
     { MP_ROM_QSTR(MP_QSTR_STAT_CONNECT_FAIL), MP_ROM_INT(CYW43_LINK_FAIL) }, \
     { MP_ROM_QSTR(MP_QSTR_STAT_GOT_IP), MP_ROM_INT(CYW43_LINK_UP) },
+
+// Override network_cyw43_make_new
+#define MICROPY_PY_NETWORK_CYW43_MAKE_NEW rp2_network_cyw43_make_new
+
 #else
 #define MICROPY_HW_NIC_CYW43
 #endif

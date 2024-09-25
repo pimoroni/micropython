@@ -77,10 +77,63 @@ void cyw43_irq_init(void) {
     NVIC_SetPriority(PendSV_IRQn, IRQ_PRI_PENDSV);
 }
 
+void cyw43_irq_deinit(void) {
+    gpio_remove_raw_irq_handler(CYW43_PIN_WL_HOST_WAKE, gpio_irq_handler);
+}
+
 void cyw43_post_poll_hook(void) {
     cyw43_has_pending = 0;
     gpio_set_irq_enabled(CYW43_PIN_WL_HOST_WAKE, CYW43_IRQ_LEVEL, true);
 }
+
+#if CYW43_PIN_WL_DYNAMIC
+// Defined in cyw43_bus_pio_spi.c
+extern int cyw43_set_pins_wl(uint pins[CYW43_PIN_INDEX_WL_COUNT]);
+
+mp_obj_t network_cyw43_set_pins_wl(size_t n_args, const mp_obj_t *args) {
+    if (n_args == 6) {
+        uint pins[CYW43_PIN_INDEX_WL_COUNT] = {
+            // REG_ON, OUT, IN, WAKE, CLOCK, CS
+            mp_obj_get_int(args[0]), //CYW43_DEFAULT_PIN_WL_REG_ON,
+            mp_obj_get_int(args[1]), //CYW43_DEFAULT_PIN_WL_DATA_OUT,
+            mp_obj_get_int(args[2]), //CYW43_DEFAULT_PIN_WL_DATA_IN,
+            mp_obj_get_int(args[3]), //CYW43_DEFAULT_PIN_WL_HOST_WAKE,
+            mp_obj_get_int(args[4]), //CYW43_DEFAULT_PIN_WL_CLOCK,
+            mp_obj_get_int(args[5]), //CYW43_DEFAULT_PIN_WL_CS
+        };
+        cyw43_irq_deinit();
+        cyw43_set_pins_wl(pins);
+        cyw43_irq_init();
+    } else if (n_args == 4) {
+        uint pins[CYW43_PIN_INDEX_WL_COUNT] = {
+            // REG_ON, IO, CLOCK, CS
+            // Data Out, Data In and Host Wake are the same pin on Pico
+            mp_obj_get_int(args[0]), //CYW43_DEFAULT_PIN_WL_REG_ON,
+            mp_obj_get_int(args[1]), //CYW43_DEFAULT_PIN_WL_DATA_OUT,
+            mp_obj_get_int(args[1]), //CYW43_DEFAULT_PIN_WL_DATA_IN,
+            mp_obj_get_int(args[1]), //CYW43_DEFAULT_PIN_WL_HOST_WAKE,
+            mp_obj_get_int(args[2]), //CYW43_DEFAULT_PIN_WL_CLOCK,
+            mp_obj_get_int(args[3]), //CYW43_DEFAULT_PIN_WL_CS
+        };
+        cyw43_irq_deinit();
+        cyw43_set_pins_wl(pins);
+        cyw43_irq_init();
+    }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_cyw43_set_pins_wl_obj, 4, 6, network_cyw43_set_pins_wl);
+#endif
+
+#if CYW43_PIO_CLOCK_DIV_DYNAMIC
+// Defined in cyw43_bus_pio_spi.c
+extern void cyw43_set_pio_clock_divisor(uint16_t clock_div_int, uint8_t clock_div_frac);
+
+mp_obj_t network_cyw43_set_pio_clock_divisor(size_t n_args, const mp_obj_t *args) {
+    cyw43_set_pio_clock_divisor(mp_obj_get_int(args[0]), mp_obj_get_int(args[1]));
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_cyw43_set_pio_clock_divisor_obj, 2, 2, network_cyw43_set_pio_clock_divisor);
+#endif
 
 #endif
 

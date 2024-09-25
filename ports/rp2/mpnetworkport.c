@@ -77,6 +77,10 @@ void cyw43_irq_init(void) {
     NVIC_SetPriority(PendSV_IRQn, IRQ_PRI_PENDSV);
 }
 
+void cyw43_irq_deinit(void) {
+    gpio_remove_raw_irq_handler(CYW43_PIN_WL_HOST_WAKE, gpio_irq_handler);
+}
+
 void cyw43_post_poll_hook(void) {
     cyw43_has_pending = 0;
     gpio_set_irq_enabled(CYW43_PIN_WL_HOST_WAKE, CYW43_IRQ_LEVEL, true);

@@ -91,6 +91,8 @@ void cyw43_post_poll_hook(void) {
 extern int cyw43_set_pins_wl(uint pins[CYW43_PIN_INDEX_WL_COUNT]);
 
 mp_obj_t network_cyw43_set_pins_wl(size_t n_args, const mp_obj_t *args) {
+    gpio_set_irq_enabled(CYW43_PIN_WL_HOST_WAKE, CYW43_IRQ_LEVEL, false);
+    cyw43_irq_deinit();
     if (n_args == 6) {
         uint pins[CYW43_PIN_INDEX_WL_COUNT] = {
             // REG_ON, OUT, IN, WAKE, CLOCK, CS
@@ -101,9 +103,7 @@ mp_obj_t network_cyw43_set_pins_wl(size_t n_args, const mp_obj_t *args) {
             mp_obj_get_int(args[4]), //CYW43_DEFAULT_PIN_WL_CLOCK,
             mp_obj_get_int(args[5]), //CYW43_DEFAULT_PIN_WL_CS
         };
-        cyw43_irq_deinit();
         cyw43_set_pins_wl(pins);
-        cyw43_irq_init();
     } else if (n_args == 4) {
         uint pins[CYW43_PIN_INDEX_WL_COUNT] = {
             // REG_ON, IO, CLOCK, CS
@@ -115,10 +115,11 @@ mp_obj_t network_cyw43_set_pins_wl(size_t n_args, const mp_obj_t *args) {
             mp_obj_get_int(args[2]), //CYW43_DEFAULT_PIN_WL_CLOCK,
             mp_obj_get_int(args[3]), //CYW43_DEFAULT_PIN_WL_CS
         };
-        cyw43_irq_deinit();
         cyw43_set_pins_wl(pins);
-        cyw43_irq_init();
     }
+    cyw43_init(&cyw43_state);
+    cyw43_irq_init();
+    cyw43_post_poll_hook(); // enable the irq
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(network_cyw43_set_pins_wl_obj, 4, 6, network_cyw43_set_pins_wl);

@@ -640,8 +640,12 @@ if(NOT PICO_NUM_EXT_GPIOS)
     set(PICO_NUM_EXT_GPIOS 10)
 endif()
 
-if(EXISTS "${MICROPY_BOARD_DIR}/pins.csv")
-    set(GEN_PINS_BOARD_CSV "${MICROPY_BOARD_DIR}/pins.csv")
+if (NOT PICO_PINS_CSV_NAME)
+    set(PICO_PINS_CSV_NAME pins.csv)
+endif()
+
+if(EXISTS "${MICROPY_BOARD_DIR}/${PICO_PINS_CSV_NAME}")
+    set(GEN_PINS_BOARD_CSV "${MICROPY_BOARD_DIR}/${PICO_PINS_CSV_NAME}")
     set(GEN_PINS_CSV_ARG --board-csv "${GEN_PINS_BOARD_CSV}")
 endif()
 

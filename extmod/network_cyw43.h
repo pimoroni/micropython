@@ -28,4 +28,7 @@
 
 extern const mp_obj_type_t mp_network_cyw43_type;
 
+// Get the interface, where type is either MOD_NETWORK_STA_IF or MOD_NETWORK_AP_IF
+mp_obj_t network_cyw43_get_interface(mp_int_t type);
+
 #endif // MICROPY_INCLUDED_EXTMOD_NETWORK_CYW43_H

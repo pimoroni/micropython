@@ -89,14 +89,29 @@ static void network_cyw43_print(const mp_print_t *print, mp_obj_t self_in, mp_pr
         );
 }
 
-static mp_obj_t network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 0, 1, false);
-    if (n_args == 0 || mp_obj_get_int(args[0]) == MOD_NETWORK_STA_IF) {
+
+mp_obj_t network_cyw43_get_interface(mp_int_t type) {
+    if (type == MOD_NETWORK_STA_IF) {
         return MP_OBJ_FROM_PTR(&network_cyw43_wl_sta);
     } else {
         return MP_OBJ_FROM_PTR(&network_cyw43_wl_ap);
     }
 }
+
+// Allow network_cyw43_make_new to be overridden
+#ifndef MICROPY_PY_NETWORK_CYW43_MAKE_NEW
+#define MICROPY_PY_NETWORK_CYW43_MAKE_NEW network_cyw43_make_new
+static mp_obj_t network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+    mp_arg_check_num(n_args, n_kw, 0, 1, false);
+    if (n_args == 0 || mp_obj_get_int(args[0]) == MOD_NETWORK_STA_IF) {
+        return network_cyw43_get_interface(MOD_NETWORK_STA_IF);
+    } else {
+        return network_cyw43_get_interface(MOD_NETWORK_AP_IF);
+    }
+}
+#else
+mp_obj_t MICROPY_PY_NETWORK_CYW43_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
+#endif
 
 static mp_obj_t network_cyw43_send_ethernet(mp_obj_t self_in, mp_obj_t buf_in) {
     network_cyw43_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -558,7 +573,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     mp_network_cyw43_type,
     MP_QSTR_CYW43,
     MP_TYPE_FLAG_NONE,
-    make_new, network_cyw43_make_new,
+    make_new, MICROPY_PY_NETWORK_CYW43_MAKE_NEW,
     print, network_cyw43_print,
     locals_dict, &network_cyw43_locals_dict
     );

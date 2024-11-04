@@ -2,6 +2,7 @@
 #include "extmod/network_cyw43.h"
 #include "extmod/modnetwork.h"
 #include "lib/cyw43-driver/src/cyw43.h"
+#include "pico/unique_id.h"
 
 void cyw43_irq_deinit(void);
 void cyw43_irq_init(void);
@@ -15,6 +16,30 @@ extern int cyw43_set_pins_wl(uint pins[CYW43_PIN_INDEX_WL_COUNT]);
 // Defined in cyw43_bus_pio_spi.c
 extern void cyw43_set_pio_clock_divisor(uint16_t clock_div_int, uint8_t clock_div_frac);
 #endif
+
+static void rp2_network_cyw43_init(void) {
+    static bool cyw43_init_done;
+    if (!cyw43_init_done) {
+        cyw43_init(&cyw43_state);
+        cyw43_irq_init();
+        cyw43_post_poll_hook(); // enable the irq
+        cyw43_init_done = true;
+    }
+    uint8_t buf[8];
+    memcpy(&buf[0], "PICO", 4);
+
+    // Use unique id to generate the default AP ssid.
+    const char hexchr[16] = "0123456789ABCDEF";
+    pico_unique_board_id_t pid;
+    pico_get_unique_board_id(&pid);
+    buf[4] = hexchr[pid.id[7] >> 4];
+    buf[5] = hexchr[pid.id[6] & 0xf];
+    buf[6] = hexchr[pid.id[5] >> 4];
+    buf[7] = hexchr[pid.id[4] & 0xf];
+    cyw43_wifi_ap_set_ssid(&cyw43_state, 8, buf);
+    cyw43_wifi_ap_set_auth(&cyw43_state, CYW43_AUTH_WPA2_AES_PSK);
+    cyw43_wifi_ap_set_password(&cyw43_state, 8, (const uint8_t *)"picoW123");
+}
 
 mp_obj_t rp2_network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_interface, ARG_pin_on, ARG_pin_out, ARG_pin_in, ARG_pin_wake, ARG_pin_clock, ARG_pin_cs, ARG_pin_dat, ARG_div_int, ARG_div_frac };
@@ -36,6 +61,7 @@ mp_obj_t rp2_network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, si
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+    rp2_network_cyw43_init();
 
     // Set the pins
     #if CYW43_PIN_WL_DYNAMIC

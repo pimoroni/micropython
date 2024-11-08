@@ -4,4 +4,6 @@
 // todo: We need something to check our binary size
 #define MICROPY_HW_FLASH_STORAGE_BYTES          (848 * 1024)
 
+#define MICROPY_PY_NETWORK_HOSTNAME_DEFAULT "PicoW"
+
 #include "enable_cyw43.h"

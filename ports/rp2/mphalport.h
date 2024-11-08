@@ -182,11 +182,11 @@ static inline void mp_hal_pin_od_high(mp_hal_pin_obj_t pin) {
 }
 
 static inline void mp_hal_pin_low(mp_hal_pin_obj_t pin) {
-    gpio_clr_mask(1 << pin);
+    gpio_put(pin, false);
 }
 
 static inline void mp_hal_pin_high(mp_hal_pin_obj_t pin) {
-    gpio_set_mask(1 << pin);
+    gpio_put(pin, true);
 }
 
 enum mp_hal_pin_interrupt_trigger {

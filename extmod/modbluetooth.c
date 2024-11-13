@@ -257,7 +257,12 @@ MP_DEFINE_CONST_OBJ_TYPE(
 // Bluetooth object: General
 // ----------------------------------------------------------------------------
 
-static mp_obj_t bluetooth_ble_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
+#ifndef MICROPY_PY_BLUETOOTH_MAKE_NEW
+#define MICROPY_PY_BLUETOOTH_MAKE_NEW bluetooth_ble_make_new
+#else
+mp_obj_t MICROPY_PY_BLUETOOTH_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args);
+#endif
+mp_obj_t bluetooth_ble_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     (void)type;
     (void)n_args;
     (void)n_kw;
@@ -979,7 +984,7 @@ static MP_DEFINE_CONST_OBJ_TYPE(
     mp_type_bluetooth_ble,
     MP_QSTR_BLE,
     MP_TYPE_FLAG_NONE,
-    make_new, bluetooth_ble_make_new,
+    make_new, MICROPY_PY_BLUETOOTH_MAKE_NEW,
     locals_dict, &bluetooth_ble_locals_dict
     );
 

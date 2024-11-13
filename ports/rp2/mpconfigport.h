@@ -226,9 +226,13 @@ extern const struct _mp_obj_type_t mp_network_cyw43_type;
 
 // Override network_cyw43_make_new
 #define MICROPY_PY_NETWORK_CYW43_MAKE_NEW rp2_network_cyw43_make_new
-
 #else
 #define MICROPY_HW_NIC_CYW43
+#endif
+
+// Override bluetooth_ble_make_new
+#if MICROPY_PY_BLUETOOTH_CYW43
+#define MICROPY_PY_BLUETOOTH_MAKE_NEW rp2_bluetooth_ble_make_new
 #endif
 
 #if MICROPY_PY_NETWORK_NINAW10

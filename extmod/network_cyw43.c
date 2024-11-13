@@ -101,7 +101,10 @@ mp_obj_t network_cyw43_get_interface(mp_int_t type) {
 // Allow network_cyw43_make_new to be overridden
 #ifndef MICROPY_PY_NETWORK_CYW43_MAKE_NEW
 #define MICROPY_PY_NETWORK_CYW43_MAKE_NEW network_cyw43_make_new
-static mp_obj_t network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+#else
+mp_obj_t MICROPY_PY_NETWORK_CYW43_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
+#endif
+mp_obj_t network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 0, 1, false);
     if (n_args == 0 || mp_obj_get_int(args[0]) == MOD_NETWORK_STA_IF) {
         return network_cyw43_get_interface(MOD_NETWORK_STA_IF);
@@ -109,9 +112,6 @@ static mp_obj_t network_cyw43_make_new(const mp_obj_type_t *type, size_t n_args,
         return network_cyw43_get_interface(MOD_NETWORK_AP_IF);
     }
 }
-#else
-mp_obj_t MICROPY_PY_NETWORK_CYW43_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args);
-#endif
 
 static mp_obj_t network_cyw43_send_ethernet(mp_obj_t self_in, mp_obj_t buf_in) {
     network_cyw43_obj_t *self = MP_OBJ_TO_PTR(self_in);

@@ -75,6 +75,9 @@ void machine_pin_ext_init(void) {
     nina_init();
 }
 
+void machine_pin_ext_obj_init(mp_arg_val_t *args) {
+}
+
 bool machine_pin_ext_is_adc_channel(const machine_pin_obj_t *self) {
     return NINA_GPIO_IS_ADC_CHANNEL(self->id);
 }

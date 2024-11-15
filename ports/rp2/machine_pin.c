@@ -242,6 +242,11 @@ static void machine_pin_print(const mp_print_t *print, mp_obj_t self_in, mp_prin
     mp_printf(print, ")");
 }
 
+// Allow the port to add extra parameters
+#ifndef MICROPY_HW_PIN_EXT_OBJ_INIT_ARGS
+#define MICROPY_HW_PIN_EXT_OBJ_INIT_ARGS
+#endif
+
 enum {
     ARG_mode, ARG_pull, ARG_value, ARG_alt
 };
@@ -250,6 +255,7 @@ static const mp_arg_t allowed_args[] = {
     {MP_QSTR_pull,  MP_ARG_OBJ,                  {.u_rom_obj = MP_ROM_NONE}},
     {MP_QSTR_value, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_rom_obj = MP_ROM_NONE}},
     {MP_QSTR_alt,   MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = GPIO_FUNC_SIO}},
+    MICROPY_HW_PIN_EXT_OBJ_INIT_ARGS
 };
 
 static mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -277,6 +283,10 @@ static mp_obj_t machine_pin_obj_init_helper(const machine_pin_obj_t *self, size_
         mp_int_t mode = mp_obj_get_int(args[ARG_mode].u_obj);
         if (is_ext_pin(self)) {
             #if MICROPY_HW_PIN_EXT_COUNT
+
+            // called if the port needs some initialisation before using an external pin
+            machine_pin_ext_obj_init(args);
+
             // The regular Pins are const, but the external pins are mutable.
             machine_pin_obj_t *mutable_self = (machine_pin_obj_t *)self;
             machine_pin_ext_config(mutable_self, mode, value);

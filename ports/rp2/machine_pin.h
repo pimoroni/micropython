@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include "py/obj.h"
 #include "py/mphal.h"
+#include "py/runtime.h"
 
 enum {
     MACHINE_PIN_MODE_IN = 0,
@@ -73,6 +74,7 @@ extern const mp_obj_type_t pin_board_pins_obj_type;
 extern const mp_obj_dict_t machine_pin_board_pins_locals_dict;
 
 void machine_pin_ext_init(void);
+void machine_pin_ext_obj_init(mp_arg_val_t *args);
 bool machine_pin_ext_is_adc_channel(const machine_pin_obj_t *self);
 uint32_t machine_pin_ext_to_adc_channel(const machine_pin_obj_t *self);
 void machine_pin_ext_set(machine_pin_obj_t *self, bool value);

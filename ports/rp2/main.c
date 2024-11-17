@@ -131,12 +131,15 @@ int main(int argc, char **argv) {
     mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
 
     #if MICROPY_HW_ENABLE_PSRAM
-    if (psram_size) {
+    // If we've detected PSRAM and there's some space for a heap
+    if (psram_size && (&__PsramGcHeapEnd - &__PsramGcHeapStart) > 0) {
+        // TODO: Check detected PSRAM is the expected size/big enough?
+        // &__PsramGcHeapEnd <= PSRAM_BASE + psram_size
         #if MICROPY_GC_SPLIT_HEAP
         gc_init(&__GcHeapStart, &__GcHeapEnd);
-        gc_add((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        gc_add(&__PsramGcHeapStart, &__PsramGcHeapEnd);
         #else
-        gc_init((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        gc_init(&__PsramGcHeapStart, &__PsramGcHeapEnd);
         #endif
     } else {
         gc_init(&__GcHeapStart, &__GcHeapEnd);

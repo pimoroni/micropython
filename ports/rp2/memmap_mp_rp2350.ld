@@ -27,6 +27,7 @@ MEMORY
     RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 512k
     SCRATCH_X(rwx) : ORIGIN = 0x20080000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20081000, LENGTH = 4k
+    PSRAM(rw) : ORIGIN = 0x11000000, LENGTH = 0
 }
 
 ENTRY(_entry_point)
@@ -280,6 +281,10 @@ SECTIONS
     /* Define start and end of GC heap */
     __GcHeapStart = __StackLimit; /* after the C heap (sbrk limit) */
     __GcHeapEnd = ORIGIN(RAM) + LENGTH(RAM) - __micropy_extra_stack__;
+
+    /* Define start and end of PSRAM GC heap */
+    __PsramGcHeapStart = ORIGIN(PSRAM);
+    __PsramGcHeapEnd = ORIGIN(PSRAM) + LENGTH(PSRAM);
 
     /* Define start and end of C stack */
     __StackTop = ORIGIN(SCRATCH_Y) + LENGTH(SCRATCH_Y);

@@ -41,4 +41,6 @@
 extern size_t psram_init(uint cs_pin);
 #endif
 
+extern uint8_t __PsramGcHeapStart, __PsramGcHeapEnd;
+
 #endif

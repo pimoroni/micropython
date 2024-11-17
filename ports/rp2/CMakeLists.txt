@@ -173,9 +173,12 @@ set(MICROPY_SOURCE_PORT
     ${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c
 )
 
-if(PICO_RP2350)
+if(MICROPY_HW_ENABLE_PSRAM)
     list(APPEND MICROPY_SOURCE_PORT
         rp2_psram.c
+    )
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        MICROPY_HW_ENABLE_PSRAM=1
     )
 endif()
 
@@ -606,7 +609,11 @@ if (PICO_ON_DEVICE AND NOT PICO_NO_FLASH AND NOT PICO_COPY_TO_RAM)
     if(PICO_RP2040)
         pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld)
     elseif(PICO_RP2350)
-        pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld)
+        if (MICROPY_HW_ENABLE_PSRAM)
+            pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350_psram.ld)
+        else()
+            pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld)
+        endif()
     endif()
 endif()
 

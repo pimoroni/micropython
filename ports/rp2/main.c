@@ -70,6 +70,7 @@
 
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
+extern uint8_t __PsramGcHeapStart, __PsramGcHeapEnd;
 
 // Embed version info in the binary in machine readable form
 bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
@@ -132,11 +133,16 @@ int main(int argc, char **argv) {
 
     #if defined(MICROPY_HW_PSRAM_CS_PIN) && MICROPY_HW_ENABLE_PSRAM
     if (psram_size) {
+        // Linker script assumes a 2MB PSRAM, increase the size accordingly.
+        size_t psram_additional_size = 0;
+        if (psram_size > 2 * 1024 * 1024) {
+            psram_additional_size = psram_size - 2 * 1024 * 1024;
+        }
         #if MICROPY_GC_SPLIT_HEAP
         gc_init(&__GcHeapStart, &__GcHeapEnd);
-        gc_add((void *)PSRAM_LOCATION, (void *)(PSRAM_LOCATION + psram_size));
+        gc_add(&__PsramGcHeapStart, &__PsramGcHeapEnd + psram_additional_size);
         #else
-        gc_init((void *)PSRAM_LOCATION, (void *)(PSRAM_LOCATION + psram_size));
+        gc_init(&__PsramGcHeapStart, &__PsramGcHeapEnd + psram_additional_size);
         #endif
     } else {
         gc_init(&__GcHeapStart, &__GcHeapEnd);

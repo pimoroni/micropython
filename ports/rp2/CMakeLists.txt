@@ -173,15 +173,6 @@ set(MICROPY_SOURCE_PORT
     ${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c
 )
 
-if(MICROPY_HW_ENABLE_PSRAM)
-    list(APPEND MICROPY_SOURCE_PORT
-        rp2_psram.c
-    )
-    target_compile_definitions(${MICROPY_TARGET} PRIVATE
-        MICROPY_HW_ENABLE_PSRAM=1
-    )
-endif()
-
 set(MICROPY_SOURCE_QSTR
     ${MICROPY_SOURCE_PY}
     ${MICROPY_DIR}/shared/readline/readline.c
@@ -256,6 +247,18 @@ elseif(PICO_RISCV)
     list(APPEND PICO_SDK_COMPONENTS
         hardware_hazard3
         hardware_riscv
+    )
+endif()
+
+if(MICROPY_HW_ENABLE_PSRAM)
+    list(APPEND MICROPY_SOURCE_PORT
+        rp2_psram.c
+    )
+    list(APPEND PICO_SDK_COMPONENTS
+        hardware_xip_cache
+    )
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        MICROPY_HW_ENABLE_PSRAM=1
     )
 endif()
 

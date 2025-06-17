@@ -95,17 +95,18 @@ int main(int argc, char **argv) {
     set_sys_clock_khz(SYS_CLK_KHZ, false);
 
     uint32_t button_mask = (1 << 12) | (1 << 13) | (1 << 14);
+    int64_t hold_time_us = 2000;
 
     gpio_init_mask(button_mask);
     gpio_set_dir_masked(button_mask, 0);
-    //gpio_set_pulls(12, true, false);
-    //gpio_set_pulls(13, true, false);
-    //gpio_set_pulls(14, true, false);
     absolute_time_t t_start = get_absolute_time();
     while(gpio_get_all() & button_mask) {
         sleep_ms(10);
+        if (absolute_time_diff_us(t_start, get_absolute_time()) > hold_time_us) {
+            tud_enable_usb_msc = true;
+            break;
+        }
     }
-    tud_enable_usb_msc = absolute_time_diff_us(t_start, get_absolute_time()) > 2000;
 
     // Hook for setting up anything that needs to be super early in the boot-up process.
     MICROPY_BOARD_STARTUP();

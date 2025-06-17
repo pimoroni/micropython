@@ -27,6 +27,7 @@
 #include "mpconfigboard.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 
 // This implementation does Not support Flash sector caching.
@@ -77,6 +78,9 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         } else {
             // unload disk storage
             ejected = true;
+            if(load_eject) {
+                watchdog_reboot(0, 0, 0);
+            }
         }
     }
     return true;

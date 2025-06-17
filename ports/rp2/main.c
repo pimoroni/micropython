@@ -95,14 +95,14 @@ int main(int argc, char **argv) {
     set_sys_clock_khz(SYS_CLK_KHZ, false);
 
     uint32_t button_mask = (1 << 12) | (1 << 13) | (1 << 14);
-    int64_t hold_time_us = 2000;
+    uint32_t hold_time_ms = 2000;
 
     gpio_init_mask(button_mask);
     gpio_set_dir_masked(button_mask, 0);
-    absolute_time_t t_start = get_absolute_time();
+    absolute_time_t t_timeout = make_timeout_time_ms(hold_time_ms);
     while(gpio_get_all() & button_mask) {
         sleep_ms(10);
-        if (absolute_time_diff_us(t_start, get_absolute_time()) > hold_time_us) {
+        if (time_reached(t_timeout)) {
             tud_enable_usb_msc = true;
             break;
         }

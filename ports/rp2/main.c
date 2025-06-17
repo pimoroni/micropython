@@ -80,6 +80,9 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
+
+extern bool tud_enable_usb_msc;
+
 int main(int argc, char **argv) {
     // This is a tickless port, interrupts should always trigger SEV.
     #if PICO_ARM
@@ -91,6 +94,12 @@ int main(int argc, char **argv) {
 
     // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
     set_sys_clock_khz(SYS_CLK_KHZ, false);
+
+    gpio_init(2);
+    gpio_set_dir(0, GPIO_IN);
+    gpio_set_pulls(0, true, false);
+    sleep_ms(2);
+    tud_enable_usb_msc = !gpio_get(0);
 
     // Hook for setting up anything that needs to be super early in the boot-up process.
     MICROPY_BOARD_STARTUP();

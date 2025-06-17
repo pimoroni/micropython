@@ -29,6 +29,8 @@
 
 #if MICROPY_HW_ENABLE_USBDEV
 
+bool tud_enable_usb_msc = true;
+
 #include "tusb.h"
 #include "mp_usbd.h"
 
@@ -51,6 +53,16 @@ const tusb_desc_device_t mp_usbd_builtin_desc_dev = {
     .iProduct = USBD_STR_PRODUCT,
     .iSerialNumber = USBD_STR_SERIAL,
     .bNumConfigurations = 1,
+};
+
+const uint8_t mp_usbd_builtin_desc_cfg_no_msc[MP_USBD_BUILTIN_DESC_CFG_LEN_NO_MSC] = {
+    TUD_CONFIG_DESCRIPTOR(1, USBD_ITF_BUILTIN_MAX, USBD_STR_0, MP_USBD_BUILTIN_DESC_CFG_LEN_NO_MSC,
+        0, USBD_MAX_POWER_MA),
+
+    #if CFG_TUD_CDC
+    TUD_CDC_DESCRIPTOR(USBD_ITF_CDC, USBD_STR_CDC, USBD_CDC_EP_CMD,
+        USBD_CDC_CMD_MAX_SIZE, USBD_CDC_EP_OUT, USBD_CDC_EP_IN, USBD_CDC_IN_OUT_MAX_SIZE),
+    #endif
 };
 
 const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN] = {
@@ -146,7 +158,13 @@ const uint8_t *tud_descriptor_device_cb(void) {
 
 const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
     (void)index;
-    return mp_usbd_builtin_desc_cfg;
+    if(tud_enable_usb_msc) {
+        return mp_usbd_builtin_desc_cfg;
+    }
+    else
+    {
+        return mp_usbd_builtin_desc_cfg_no_msc;
+    }
 }
 
 #else

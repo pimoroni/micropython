@@ -29,7 +29,7 @@
 
 #if MICROPY_HW_ENABLE_USBDEV
 
-bool tud_enable_usb_msc = true;
+extern bool tud_enable_usb_msc;
 
 #include "tusb.h"
 #include "mp_usbd.h"

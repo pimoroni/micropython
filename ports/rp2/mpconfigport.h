@@ -63,7 +63,7 @@
 #endif
 
 #ifndef MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE
-#define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE    (1) // Support machine.USBDevice
+#define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE    (0) // NOTE: Disabled to allow us to dynamically enable/disable USB MSC Support machine.USBDevice
 #endif
 #endif
 

@@ -1,3 +1,4 @@
+import os
 import vfs
 import machine, rp2
 
@@ -8,10 +9,11 @@ try:
     fat = vfs.VfsFat(bdev)
     fat.label("Badger2350")
     vfs.mount(fat, "/")
+    os.listdir("/") # might fail with UnicodeError on corrupt FAT
 except:
     vfs.VfsFat.mkfs(bdev)
     fat = vfs.VfsFat(bdev)
     fat.label("Badger2350")
     vfs.mount(fat, "/")
 
-del vfs, bdev
+del os, vfs, bdev

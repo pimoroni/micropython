@@ -80,7 +80,7 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
-bool tud_enable_usb_msc = false;
+extern bool tud_enable_usb_msc;
 
 int main(int argc, char **argv) {
     // This is a tickless port, interrupts should always trigger SEV.
@@ -93,20 +93,6 @@ int main(int argc, char **argv) {
 
     // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
     set_sys_clock_khz(SYS_CLK_KHZ, false);
-
-    uint32_t button_mask = (1 << 12) | (1 << 13) | (1 << 14);
-    uint32_t hold_time_ms = 2000;
-
-    gpio_init_mask(button_mask);
-    gpio_set_dir_masked(button_mask, 0);
-    absolute_time_t t_timeout = make_timeout_time_ms(hold_time_ms);
-    while(gpio_get_all() & button_mask) {
-        sleep_ms(10);
-        if (time_reached(t_timeout)) {
-            tud_enable_usb_msc = true;
-            break;
-        }
-    }
 
     // Hook for setting up anything that needs to be super early in the boot-up process.
     MICROPY_BOARD_STARTUP();
@@ -227,7 +213,12 @@ int main(int argc, char **argv) {
         #endif
 
         // Execute user scripts.
-        int ret = pyexec_file_if_exists("boot.py");
+        int ret;
+        if(tud_enable_usb_msc) {
+            ret = pyexec_file_if_exists("_usb_msc.py");
+        } else {
+            ret = pyexec_file_if_exists("boot.py");
+        }
 
         #if MICROPY_HW_ENABLE_USBDEV
         mp_usbd_init();
@@ -237,7 +228,11 @@ int main(int argc, char **argv) {
             goto soft_reset_exit;
         }
 
-        if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL && ret != 0 && !tud_enable_usb_msc) {
+        if(tud_enable_usb_msc) {
+            mp_handle_pending(false);
+        }
+
+        if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL && ret != 0) {
             ret = pyexec_file_if_exists("main.py");
             if (ret & PYEXEC_FORCED_EXIT) {
                 goto soft_reset_exit;

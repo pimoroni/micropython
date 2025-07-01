@@ -175,6 +175,7 @@ set(MICROPY_SOURCE_PORT
     rp2_pio.c
     rp2_psram.c
     rp2_dma.c
+    rp2_doubletap.c
     uart.c
     usbd.c
     msc_disk.c

@@ -88,6 +88,16 @@ static mp_obj_t rp2_bootsel_button(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_bootsel_button_obj, rp2_bootsel_button);
 
+extern bool rp2_set_msc_ready();
+static mp_obj_t rp2_enable_user_msc() {
+    if (rp2_set_msc_ready()) {
+        for(;;) {
+            mp_event_handle_nowait();
+        }
+    }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_enable_user_msc_obj, rp2_enable_user_msc);
 
 static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_rp2) },
@@ -96,6 +106,7 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_StateMachine),        MP_ROM_PTR(&rp2_state_machine_type) },
     { MP_ROM_QSTR(MP_QSTR_DMA),                 MP_ROM_PTR(&rp2_dma_type) },
     { MP_ROM_QSTR(MP_QSTR_bootsel_button),      MP_ROM_PTR(&rp2_bootsel_button_obj) },
+    { MP_ROM_QSTR(MP_QSTR_enable_msc),          MP_ROM_PTR(&rp2_enable_user_msc_obj) },
 
     #if MICROPY_PY_NETWORK_CYW43
     // Deprecated (use network.country instead).

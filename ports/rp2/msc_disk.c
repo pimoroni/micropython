@@ -23,7 +23,8 @@
  *
  */
 #include "tusb.h"
-#if CFG_TUD_MSC
+
+//#if CFG_TUD_MSC
 #include "mpconfigboard.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
@@ -41,6 +42,8 @@
 #define FLASH_MMAP_ADDR     (XIP_BASE + FLASH_BASE_ADDR)
 
 static bool ejected = false;
+bool tud_enable_usb_msc = false;
+static bool allow_removal = false;
 
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
@@ -53,10 +56,16 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
-    if (ejected) {
+    if (ejected || !tud_enable_usb_msc) {
         tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
         return false;
     }
+    return true;
+}
+
+bool rp2_set_msc_ready() {
+    if(tud_enable_usb_msc) return false;
+    tud_enable_usb_msc = true;
     return true;
 }
 
@@ -112,6 +121,8 @@ int32_t tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, u
     int32_t resplen = 0;
     switch (scsi_cmd[0]) {
         case SCSI_CMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
+            scsi_prevent_allow_medium_removal_t const* prevent_allow = (scsi_prevent_allow_medium_removal_t const*)scsi_cmd;
+            allow_removal = !prevent_allow->prohibit_removal;
             // Sync the logical unit if needed.
             break;
 
@@ -124,4 +135,4 @@ int32_t tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void *buffer, u
     }
     return resplen;
 }
-#endif
+//#endif

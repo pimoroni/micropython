@@ -16,5 +16,6 @@ endif
 
 FROZEN_MANIFEST ?= $(VARIANT_DIR)/manifest.py
 SRC_C += $(TOP)/extmod/modfenster.c
+USER_C_MODULES = $(TOP)/..
 
 GIT_SUBMODULES += lib/fenster

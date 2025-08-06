@@ -155,14 +155,18 @@ static int execute_from_lexer(int source_kind, const void *source, mp_parse_inpu
         }
         #endif
 
+        printf("mp_compile\n");
         mp_obj_t module_fun = mp_compile(&parse_tree, source_name, is_repl);
 
         if (!compile_only) {
             // execute it
+            printf("mp_call_function_0\n");
             mp_call_function_0(module_fun);
+            printf("hello?\n");
         }
 
         mp_hal_set_interrupt_char(-1);
+        printf("mp_handle_pending\n");
         mp_handle_pending(true);
         nlr_pop();
         return 0;
@@ -473,11 +477,10 @@ static void sys_set_excecutable(char *argv0) {
 
 MP_NOINLINE int main_(int argc, char **argv);
 
-int main(int argc, char **argv) {
-    #if MICROPY_PY_THREAD
-    mp_thread_init();
-    #endif
+extern void fenster_init(void);
+extern void fenster_deinit(void);
 
+int main(int argc, char **argv) {
     // Define a reasonable stack limit to detect stack overflow.
     mp_uint_t stack_size = 40000 * (sizeof(void *) / 4);
     #if defined(__arm__) && !defined(__thumb2__)
@@ -490,8 +493,32 @@ int main(int argc, char **argv) {
     // For this, actual main (renamed main_) should not be inlined into
     // this function. main_() itself may have other functions inlined (with
     // their own stack variables), that's why we need this main/main_ split.
+
+    fenster_init();
+    int ret = 0;
+    while (true) {
+        char** _argv = malloc((argc + 1) * sizeof *_argv);
+        for(int i = 0; i < argc; ++i)
+        {
+            size_t length = strlen(argv[i])+1;
+            _argv[i] = malloc(length);
+            memcpy(_argv[i], argv[i], length);
+        }
+        _argv[argc] = NULL;
+        printf("Run...\n");
+
+        #if MICROPY_PY_THREAD
+        mp_thread_init();
+        #endif
     mp_cstack_init_with_sp_here(stack_size);
-    return main_(argc, argv);
+
+        ret = main_(argc, _argv);
+        printf("Exit: %d\n", ret);
+        if(ret != 255) break;
+    }
+    fenster_deinit();
+
+    return ret;
 }
 
 MP_NOINLINE int main_(int argc, char **argv) {
@@ -509,6 +536,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     signal(SIGPIPE, SIG_IGN);
     #endif
 
+    printf("pre_process_options\n");
     pre_process_options(argc, argv);
 
     #if MICROPY_ENABLE_GC
@@ -535,6 +563,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     mp_pystack_init(pystack, &pystack[MP_ARRAY_SIZE(pystack)]);
     #endif
 
+    printf("mp_init\n");
     mp_init();
 
     #if MICROPY_EMIT_NATIVE
@@ -605,6 +634,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
         }
     }
 
+    printf("mp_obj_list_init\n");
     mp_obj_list_init(MP_OBJ_TO_PTR(mp_sys_argv), 0);
 
     #if defined(MICROPY_UNIX_COVERAGE)
@@ -640,6 +670,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     sys_set_excecutable(argv[0]);
     #endif
 
+    printf("parse argv\n");
     const int NOTHING_EXECUTED = -2;
     int ret = NOTHING_EXECUTED;
     bool inspect = false;
@@ -735,9 +766,12 @@ MP_NOINLINE int main_(int argc, char **argv) {
             // Set base dir of the script as first entry in sys.path.
             char *p = strrchr(basedir, '/');
             mp_obj_list_store(mp_sys_path, MP_OBJ_NEW_SMALL_INT(0), mp_obj_new_str_via_qstr(basedir, p - basedir));
+            printf("free(basedir)\n");
             free(basedir);
 
+            printf("set_sys_argv\n");
             set_sys_argv(argv, argc, a);
+            printf("do_file\n");
             ret = do_file(argv[a]);
             break;
         }
@@ -780,6 +814,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     #endif
 
     #if MICROPY_PY_THREAD
+    printf("mp_thread_deinit\n");
     mp_thread_deinit();
     #endif
 
@@ -787,6 +822,7 @@ MP_NOINLINE int main_(int argc, char **argv) {
     gc_sweep_all();
     #endif
 
+    printf("mp_deinit\n");
     mp_deinit();
 
     #if MICROPY_ENABLE_GC && !defined(NDEBUG)

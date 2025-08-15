@@ -71,6 +71,9 @@
 
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
+#if MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+extern uint8_t __PsramGcHeapStart, __PsramGcHeapEnd;
+#endif
 
 // Embed version info in the binary in machine readable form
 bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
@@ -135,9 +138,17 @@ int main(int argc, char **argv) {
     if (psram_size) {
         #if MICROPY_GC_SPLIT_HEAP
         gc_init(&__GcHeapStart, &__GcHeapEnd);
+        #if MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+        gc_add(&__PsramGcHeapStart, &__PsramGcHeapEnd);
+        #else
         gc_add((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        #endif
+        #else
+        #if MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+        gc_init(&__PsramGcHeapStart, &__PsramGcHeapEnd);
         #else
         gc_init((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        #endif
         #endif
     } else {
         gc_init(&__GcHeapStart, &__GcHeapEnd);

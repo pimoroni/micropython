@@ -27,6 +27,7 @@
 #include "mpconfigboard.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 
 // This implementation does Not support Flash sector caching.
@@ -40,6 +41,15 @@
 #define FLASH_MMAP_ADDR     (XIP_BASE + FLASH_BASE_ADDR)
 
 static bool ejected = false;
+static bool ready = false;
+
+bool rp2_tud_set_msc_ready() {
+    if(ready) {
+        return false;
+    }
+    ready = true;
+    return true;
+}
 
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
@@ -52,7 +62,7 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
-    if (ejected) {
+    if (ejected || !ready) {
         tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
         return false;
     }
@@ -77,6 +87,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         } else {
             // unload disk storage
             ejected = true;
+            watchdog_reboot(0, 0, 0);
         }
     }
     return true;

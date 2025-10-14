@@ -40,8 +40,11 @@
 #define FLASH_BASE_ADDR     (PICO_FLASH_SIZE_BYTES - MICROPY_HW_FLASH_STORAGE_BYTES)
 #define FLASH_MMAP_ADDR     (XIP_BASE + FLASH_BASE_ADDR)
 
+#define WRITE_BUSY_STATUS_TIMEOUT 1000000llu
+
 static bool ejected = false;
 static bool ready = false;
+static absolute_time_t last_write = 0;
 
 bool rp2_tud_set_msc_ready() {
     if(ready) {
@@ -49,6 +52,11 @@ bool rp2_tud_set_msc_ready() {
     }
     ready = true;
     return true;
+}
+
+bool rp2_tud_is_msc_busy() {
+    if(last_write == 0) return false;
+    return  absolute_time_diff_us(last_write, get_absolute_time()) < WRITE_BUSY_STATUS_TIMEOUT;
 }
 
 // Invoked when received SCSI_CMD_INQUIRY
@@ -104,6 +112,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
+    last_write = get_absolute_time();
     uint32_t count = bufsize / BLOCK_SIZE;
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);

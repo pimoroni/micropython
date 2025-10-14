@@ -89,13 +89,21 @@ static mp_obj_t rp2_bootsel_button(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_bootsel_button_obj, rp2_bootsel_button);
 
+extern bool rp2_tud_is_msc_busy();
+static mp_obj_t rp2_is_msc_busy() {
+    return mp_obj_new_bool(rp2_tud_is_msc_busy());
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_is_msc_busy_obj, rp2_is_msc_busy);
+
+
 extern bool rp2_tud_set_msc_ready();
 static mp_obj_t rp2_enable_user_msc() {
     mp_usbd_init(); // USB is not normally initialised until after boot scripts
     if (rp2_tud_set_msc_ready()) {
-        for(;;) {
+        /*for(;;) {
             mp_event_handle_nowait();
-        }
+        }*/
+       return mp_const_true;
     }
     return mp_const_none;
 }
@@ -109,6 +117,7 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_DMA),                 MP_ROM_PTR(&rp2_dma_type) },
     { MP_ROM_QSTR(MP_QSTR_bootsel_button),      MP_ROM_PTR(&rp2_bootsel_button_obj) },
     { MP_ROM_QSTR(MP_QSTR_enable_msc),          MP_ROM_PTR(&rp2_enable_user_msc_obj) },
+    { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
 
 
     #if MICROPY_PY_NETWORK_CYW43

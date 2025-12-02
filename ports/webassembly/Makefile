@@ -36,6 +36,7 @@ include $(TOP)/extmod/extmod.mk
 # Project specific settings and compiler/linker flags.
 
 CC = emcc
+CXX = em++
 LD = emcc
 NODE ?= node
 TERSER ?= npx terser
@@ -44,10 +45,16 @@ INC += -I.
 INC += -I$(TOP)
 INC += -I$(BUILD)
 INC += -I$(VARIANT_DIR)
+INC += -I$(TOP)/ports/webassembly/pngdec
 
-CFLAGS += -std=c99 -Wall -Werror -Wdouble-promotion -Wfloat-conversion
+CXXFLAGS = $(CFLAGS) -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1
+
+CFLAGS += -std=gnu99 -Wall -Werror -Wdouble-promotion -Wfloat-conversion -Wno-deprecated-non-prototype -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1
 CFLAGS += -Os -DNDEBUG
 CFLAGS += $(INC)
+
+LDFLAGS += -specs=nano.specs
+CXXFLAGS += $(INC) -std=c++17 -Wno-error -fms-extensions -fno-exceptions -fno-unwind-tables -fno-rtti -fno-use-cxa-atexit
 
 EXPORTED_FUNCTIONS_EXTRA += ,\
 	_mp_js_do_exec,\
@@ -77,7 +84,8 @@ EXPORTED_RUNTIME_METHODS_EXTRA += ,\
 	getValue,\
 	lengthBytesUTF8,\
 	setValue,\
-	stringToUTF8
+	stringToUTF8,\
+	HEAPU8
 
 JSFLAGS += -s EXPORTED_FUNCTIONS="\
 	_free,\
@@ -114,9 +122,30 @@ SRC_C += \
 	mphalport.c \
 	objjsproxy.c \
 	proxy_c.c \
+	modframebufcp.c \
+	picovector/micropython/picovector_bindings.c \
+    pngdec/adler32.c \
+    pngdec/crc32.c \
+    pngdec/infback.c \
+    pngdec/inffast.c \
+    pngdec/inflate.c \
+    pngdec/inftrees.c \
+    pngdec/zutil.c
+
+SRC_CXX = \
+	picovector/micropython/picovector.cpp \
+	picovector/brush.cpp \
+	picovector/font.cpp \
+	picovector/image.cpp \
+	picovector/matrix.cpp \
+	picovector/picovector.cpp \
+	picovector/pixel_font.cpp \
+	picovector/primitive.cpp \
+	picovector/shape.cpp \
+	pngdec/PNGdec.cpp
 
 # List of sources for qstr extraction.
-SRC_QSTR += $(SRC_C) $(SRC_SHARED)
+SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SRC_SHARED)
 
 SRC_JS += \
 	api.js \
@@ -126,6 +155,7 @@ SRC_JS += \
 OBJ += $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_SHARED:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
+OBJ += $(addprefix $(BUILD)/, $(SRC_CXX:.cpp=.o))
 
 ################################################################################
 # Main targets.

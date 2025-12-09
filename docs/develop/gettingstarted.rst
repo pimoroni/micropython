@@ -282,6 +282,34 @@ To run a selection of tests on a board/device connected over USB use:
 
 See also :ref:`writingtests`.
 
+Additional make targets for developers
+--------------------------------------
+
+In all ``make``-based ports, there is a target to print the size of a specific object file.
+When a change is confined to a single file, this is useful when testing variations to find smaller alternatives.
+
+For instance, to print the size of ``objstr.o`` in the ``py/`` directory when making a unix standard build:
+
+.. code-block:: bash
+
+   $ make build-standard/py/objstr.sz
+
+Similarly, there is a target to save the preprocessed version of a file:
+
+.. code-block:: bash
+
+   $ make build-standard/py/objstr.pp
+
+In ``ports/unix`` there are additional targets related to running tests:
+
+.. code-block:: bash
+
+   $ make test//int       # Run all tests matching the pattern "int"
+   $ make test/ports/unix # Run all tests in ports/unix
+   $ make test-failures   # Re-run only the failed tests
+   $ make print-failures  # print the differences for failed tests
+   $ make clean-failures  # delete the .exp and .out files from failed tests
+
 Using ci.sh locally
 -------------------
 
@@ -305,6 +333,30 @@ As an example, you can build and test the unix minimal port with:
 .. code-block:: bash
 
    $ tools/ci.sh unix_minimal_build unix_minimal_run_tests
+
+If you use the bash shell, you can add a ``ci`` command with tab completion:
+
+.. code-block:: bash
+
+   $ eval $(tools/ci.sh --bash-completion)
+
+For the zsh shell, replace ``--bash-completion`` with ``--zsh-completion``.
+For the fish shell, replace ``--bash-completion`` with ``--fish-completion``.
+
+Then, typing:
+
+.. code-block:: bash
+
+   $ ci unix_cov<tab>
+
+This will complete the ci step name to ``unix_coverage_``.
+Pressing tab a second time will show the list of matching steps:
+
+.. code-block:: bash
+
+   $ ci unix_coverage_<tab>
+   unix_coverage_32bit_build
+   unix_coverage_32bit_run_native_mpy_tests…
 
 Folder structure
 ----------------

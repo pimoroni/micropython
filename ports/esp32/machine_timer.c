@@ -47,6 +47,9 @@
 
 #define TIMER_FLAGS    0
 
+#if CONFIG_IDF_TARGET_ESP32P4
+static uint8_t __DECLARE_RCC_ATOMIC_ENV __attribute__ ((unused));
+#endif
 const mp_obj_type_t machine_timer_type;
 
 static mp_obj_t machine_timer_init_helper(machine_timer_obj_t *self, mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args);
@@ -227,6 +230,7 @@ static mp_obj_t machine_timer_init_helper(machine_timer_obj_t *self, mp_uint_t n
         ARG_period,
         ARG_tick_hz,
         ARG_freq,
+        ARG_hard,
     };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_mode,         MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 1} },
@@ -238,12 +242,17 @@ static mp_obj_t machine_timer_init_helper(machine_timer_obj_t *self, mp_uint_t n
         #else
         { MP_QSTR_freq,         MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 0xffffffff} },
         #endif
+        { MP_QSTR_hard,         MP_ARG_KW_ONLY | MP_ARG_BOOL, {.u_bool = false} },
     };
 
     machine_timer_disable(self);
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    if (args[ARG_hard].u_bool) {
+        mp_raise_ValueError(MP_ERROR_TEXT("hard Timers are not implemented"));
+    }
 
     #if MICROPY_PY_BUILTINS_FLOAT
     if (args[ARG_freq].u_obj != mp_const_none) {

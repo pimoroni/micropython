@@ -267,7 +267,7 @@ static void do_load(mp_module_context_t *module_obj, vstr_t *file) {
 
 // Convert a relative (to the current module) import, going up "level" levels,
 // into an absolute import.
-static void evaluate_relative_import(mp_int_t level, const char **module_name, size_t *module_name_len) {
+static void evaluate_relative_import(mp_int_t level, const char **module_name, size_t *module_name_len, mp_obj_t globals) {
     // What we want to do here is to take the name of the current module,
     // remove <level> trailing components, and concatenate the passed-in
     // module name.
@@ -276,7 +276,7 @@ static void evaluate_relative_import(mp_int_t level, const char **module_name, s
     // module's position in the package hierarchy."
     // http://legacy.python.org/dev/peps/pep-0328/#relative-imports-and-name
 
-    mp_obj_t current_module_name_obj = mp_obj_dict_get(MP_OBJ_FROM_PTR(mp_globals_get()), MP_OBJ_NEW_QSTR(MP_QSTR___name__));
+    mp_obj_t current_module_name_obj = mp_obj_dict_get(globals, MP_OBJ_NEW_QSTR(MP_QSTR___name__));
     assert(current_module_name_obj != MP_OBJ_NULL);
 
     #if MICROPY_MODULE_OVERRIDE_MAIN_IMPORT && MICROPY_CPYTHON_COMPAT
@@ -284,12 +284,12 @@ static void evaluate_relative_import(mp_int_t level, const char **module_name, s
         // This is a module loaded by -m command-line switch (e.g. unix port),
         // and so its __name__ has been set to "__main__". Get its real name
         // that we stored during import in the __main__ attribute.
-        current_module_name_obj = mp_obj_dict_get(MP_OBJ_FROM_PTR(mp_globals_get()), MP_OBJ_NEW_QSTR(MP_QSTR___main__));
+        current_module_name_obj = mp_obj_dict_get(globals, MP_OBJ_NEW_QSTR(MP_QSTR___main__));
     }
     #endif
 
     // If we have a __path__ in the globals dict, then we're a package.
-    bool is_pkg = mp_map_lookup(&mp_globals_get()->map, MP_OBJ_NEW_QSTR(MP_QSTR___path__), MP_MAP_LOOKUP);
+    bool is_pkg = mp_map_lookup(mp_obj_dict_get_map(globals), MP_OBJ_NEW_QSTR(MP_QSTR___path__), MP_MAP_LOOKUP);
 
     #if DEBUG_PRINT
     DEBUG_printf("Current module/package: ");
@@ -403,6 +403,7 @@ static mp_obj_t process_import_at_level(qstr full_mod_name, qstr level_mod_name,
         // all the locations in sys.path.
         stat = stat_top_level(level_mod_name, &path);
 
+        #if MICROPY_HAVE_REGISTERED_EXTENSIBLE_MODULES
         // If filesystem failed, now try and see if it matches an extensible
         // built-in module.
         if (stat == MP_IMPORT_STAT_NO_EXIST) {
@@ -411,6 +412,7 @@ static mp_obj_t process_import_at_level(qstr full_mod_name, qstr level_mod_name,
                 return module_obj;
             }
         }
+        #endif
     } else {
         DEBUG_printf("Searching for sub-module\n");
 
@@ -567,10 +569,19 @@ mp_obj_t mp_builtin___import___default(size_t n_args, const mp_obj_t *args) {
     const char *module_name = mp_obj_str_get_data(module_name_obj, &module_name_len);
 
     if (level != 0) {
+        // This is the dict with all global symbols.
+        mp_obj_t globals = MP_OBJ_FROM_PTR(mp_globals_get());
+        if (n_args >= 2 && args[1] != mp_const_none) {
+            globals = args[1];
+            if (!mp_obj_is_type(globals, &mp_type_dict)) {
+                mp_raise_TypeError(NULL);
+            }
+        }
+
         // Turn "foo.bar" with level=3 into "<current module 3 components>.foo.bar".
         // Current module name is extracted from globals().__name__.
-        evaluate_relative_import(level, &module_name, &module_name_len);
         // module_name is now an absolute module path.
+        evaluate_relative_import(level, &module_name, &module_name_len, globals);
     }
 
     if (module_name_len == 0) {
@@ -646,11 +657,13 @@ mp_obj_t mp_builtin___import___default(size_t n_args, const mp_obj_t *args) {
     if (module_obj != MP_OBJ_NULL) {
         return module_obj;
     }
+    #if MICROPY_HAVE_REGISTERED_EXTENSIBLE_MODULES
     // Now try as an extensible built-in (e.g. `time`).
     module_obj = mp_module_get_builtin(module_name_qstr, true);
     if (module_obj != MP_OBJ_NULL) {
         return module_obj;
     }
+    #endif
 
     // Couldn't find the module, so fail
     #if MICROPY_ERROR_REPORTING <= MICROPY_ERROR_REPORTING_TERSE

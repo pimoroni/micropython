@@ -53,7 +53,6 @@
 #define MICROPY_FLOAT_IMPL          (MICROPY_FLOAT_IMPL_DOUBLE)
 #define MICROPY_USE_INTERNAL_ERRNO  (1)
 #define MICROPY_USE_INTERNAL_PRINTF (0)
-#define MICROPY_PY_BOUND_METHOD_FULL_EQUALITY_CHECK (1)
 
 #define MICROPY_EPOCH_IS_1970       (1)
 #define MICROPY_PY_ASYNCIO_TASK_QUEUE_PUSH_CALLBACK (1)
@@ -103,12 +102,6 @@
 
 #define MP_SSIZE_MAX (0x7fffffff)
 
-// This port is intended to be 32-bit, but unfortunately, int32_t for
-// different targets may be defined in different ways - either as int
-// or as long. This requires different printf formatting specifiers
-// to print such value. So, we avoid int32_t and use int directly.
-typedef int mp_int_t; // must be pointer size
-typedef unsigned mp_uint_t; // must be pointer size
 typedef long mp_off_t;
 
 #define MICROPY_HW_BOARD_NAME "JS"

@@ -140,9 +140,12 @@ static mp_uint_t socket_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg, i
             // The rationale MicroPython follows is that close() just releases
             // file descriptor. If you're interested to catch I/O errors before
             // closing fd, fsync() it.
-            MP_THREAD_GIL_EXIT();
-            close(self->fd);
-            MP_THREAD_GIL_ENTER();
+            if (self->fd >= 0) {
+                MP_THREAD_GIL_EXIT();
+                close(self->fd);
+                MP_THREAD_GIL_ENTER();
+            }
+            self->fd = -1;
             return 0;
 
         case MP_STREAM_GET_FILENO:
@@ -706,6 +709,9 @@ static const mp_rom_map_elem_t mp_module_socket_globals_table[] = {
     C(SO_KEEPALIVE),
     C(SO_LINGER),
     C(SO_REUSEADDR),
+
+    C(IP_ADD_MEMBERSHIP),
+    C(IP_DROP_MEMBERSHIP),
 #undef C
 };
 

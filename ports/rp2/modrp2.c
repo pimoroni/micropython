@@ -95,6 +95,12 @@ static mp_obj_t rp2_is_msc_busy() {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_is_msc_busy_obj, rp2_is_msc_busy);
 
+extern void rp2_tud_set_psram_fs_addr(uint32_t addr);
+static mp_obj_t rp2_set_msc_psram_fs_addr(mp_obj_t addr_in) {
+    rp2_tud_set_psram_fs_addr(mp_obj_get_ll(addr_in));
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(rp2_set_msc_psram_fs_addr_obj, rp2_set_msc_psram_fs_addr);
 
 extern bool rp2_tud_set_msc_ready();
 static mp_obj_t rp2_enable_user_msc() {
@@ -118,6 +124,7 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_bootsel_button),      MP_ROM_PTR(&rp2_bootsel_button_obj) },
     { MP_ROM_QSTR(MP_QSTR_enable_msc),          MP_ROM_PTR(&rp2_enable_user_msc_obj) },
     { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
+    { MP_ROM_QSTR(MP_QSTR_msc_psram_addr),      MP_ROM_PTR(&rp2_set_msc_psram_fs_addr_obj) },
 
 
     #if MICROPY_PY_NETWORK_CYW43

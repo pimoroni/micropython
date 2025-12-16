@@ -45,6 +45,16 @@
 static bool ejected = false;
 static bool ready = false;
 static absolute_time_t last_write = 0;
+uint32_t psram_fs_addr = 0;
+
+enum {
+    LUN_FLASH_FS = 0,
+    LUN_PSRAM_FS = 1
+};
+
+uint8_t tud_msc_get_maxlun_cb(void) {
+  return 2;
+}
 
 bool rp2_tud_set_msc_ready() {
     if(ready) {
@@ -59,6 +69,10 @@ bool rp2_tud_is_msc_busy() {
     return  absolute_time_diff_us(last_write, get_absolute_time()) < WRITE_BUSY_STATUS_TIMEOUT;
 }
 
+void rp2_tud_set_psram_fs_addr(uint32_t addr) {
+    psram_fs_addr = addr;
+}
+
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
@@ -70,9 +84,16 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
-    if (ejected || !ready) {
-        tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
-        return false;
+    if(lun == LUN_FLASH_FS) {
+        if (ejected || !ready) {
+            tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+            return false;
+        }
+    } else if (lun == LUN_PSRAM_FS) {
+        if (psram_fs_addr == 0) {
+            tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+            return false;
+        }
     }
     return true;
 }
@@ -80,23 +101,32 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun) {
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
 // Application update block count and block size
 void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_size) {
-    *block_size = BLOCK_SIZE;
-    *block_count = BLOCK_COUNT;
+    if(lun == LUN_FLASH_FS) {
+        *block_size = BLOCK_SIZE;
+        *block_count = BLOCK_COUNT;
+    } else if (lun == LUN_PSRAM_FS) {
+        *block_size = BLOCK_SIZE;
+        *block_count = (4 * 1024 * 1024) / BLOCK_SIZE;
+    }
 }
 
 // Invoked when received Start Stop Unit command
 // - Start = 0 : stopped power mode, if load_eject = 1 : unload disk storage
 // - Start = 1 : active mode, if load_eject = 1 : load disk storage
 bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, bool load_eject) {
-    if (load_eject) {
-        if (start) {
-            // load disk storage
-            ejected = false;
-        } else {
-            // unload disk storage
-            ejected = true;
-            watchdog_reboot(0, 0, 0);
+    if(lun == LUN_FLASH_FS) {
+        if (load_eject) {
+            if (start) {
+                // load disk storage
+                ejected = false;
+            } else {
+                // unload disk storage
+                ejected = true;
+                watchdog_reboot(0, 0, 0);
+            }
         }
+    } else if (lun == LUN_PSRAM_FS) {
+        // TODO: Sync the contents of the PSRAM-backed virtual FATFS to the real LittleFS
     }
     return true;
 }
@@ -105,20 +135,29 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
-    memcpy(buffer, (void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), count * BLOCK_SIZE);
+    if(lun == LUN_FLASH_FS) {
+        memcpy(buffer, (void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), count * BLOCK_SIZE);
+    } else if (lun == LUN_PSRAM_FS) {
+        memcpy(buffer, (void *)(psram_fs_addr + lba * BLOCK_SIZE), count * BLOCK_SIZE);
+    }
     return count * BLOCK_SIZE;
 }
 
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
-    last_write = get_absolute_time();
     uint32_t count = bufsize / BLOCK_SIZE;
-    uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);
-    flash_range_program(FLASH_BASE_ADDR + lba * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
-    restore_interrupts(ints);
+    last_write = get_absolute_time();
+    if(lun == LUN_FLASH_FS) {
+        uint32_t ints = save_and_disable_interrupts();
+        flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);
+        flash_range_program(FLASH_BASE_ADDR + lba * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
+        restore_interrupts(ints);
+    } else if (lun == LUN_PSRAM_FS) {
+        memcpy((void *)(psram_fs_addr + lba * BLOCK_SIZE), buffer, count * BLOCK_SIZE);
+    }
     return count * BLOCK_SIZE;
+
 }
 
 // Callback invoked when received an SCSI command not in built-in list below

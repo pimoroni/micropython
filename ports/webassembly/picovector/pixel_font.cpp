@@ -4,7 +4,7 @@
 #include "image.hpp"
 #include "picovector.hpp"
 #include "brush.hpp"
-#include "matrix.hpp"
+#include "mat3.hpp"
 
 using std::min;
 using std::max;
@@ -34,7 +34,7 @@ namespace picovector {
   }
 
   rect_t pixel_font_t::measure(image_t *target, const char *text) {
-    rect_t tb = target->bounds();
+    rect_t tb = target->clip();
     rect_t b(tb.x + tb.w, tb.y + tb.h, 0, this->height);
 
     point_t caret(0, 0);
@@ -64,29 +64,35 @@ namespace picovector {
     uint32_t bytes_per_row = (this->width + 7) >> 3;
 
     // clip the x and y ranges to within bounds
-    int yoff = max(0, int(bounds.y - y));
+    int yoff = 0;//max(0, int(bounds.y - y));
+    if(y < bounds.y) {
+      yoff = bounds.y - y;
+    }
     int yf = y + yoff;
     int yc = this->height - yoff;
-    yc = min(yc, int(bounds.h - yf));
+    yc = min(yc, int(bounds.y + bounds.h - yf));
 
     int xoff = max(0, int(bounds.x - x));
     int xf = x + xoff;
     int xc = glyph->width - xoff;
-    xc = min(xc, int(bounds.w - xf));
+    xc = min(xc, int(bounds.x + bounds.w - xf));
 
-    uint32_t *dst = (uint32_t *)target->ptr(0, yf);
+    //uint32_t *dst = (uint32_t *)target->ptr(0, yf);
     uint32_t row_stride = target->row_stride() / 4;
 
+    data += yoff * bytes_per_row;
     for(int yo = yf; yo < yf + yc; yo++) {
       for(int xo = xf; xo < xf + xc; xo++) {
         int bit = xo - x;
         uint8_t b = data[bit >> 3];
         if(b & (0b1 << (7 - (bit & 0b111)))) {
-          brush->pixel(&dst[xo]);
+          //brush->pixel(&dst[xo]);
+          //brush->render_span(target, xo, yo, 1);
+          brush->pixel_func(brush, xo, yo);
         }
       }
 
-      dst += row_stride;
+      //dst += row_stride;
       data += bytes_per_row;
     }
   }
@@ -98,11 +104,11 @@ namespace picovector {
     text_bounds.y = y;
 
     // text isn't within the target bounds at all, escape early
-    if(!text_bounds.intersects(target->bounds())) {
+    if(!text_bounds.intersects(target->clip())) {
       return;
     }
 
-    rect_t bounds = target->bounds();
+    rect_t bounds = target->clip();
 
     brush_t *brush = target->brush();
 

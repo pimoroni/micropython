@@ -1,50 +1,64 @@
 #pragma once
 
-#include <vector>
 #include "picovector.hpp"
+#include "mat3.hpp"
+#include "image.hpp"
 
 namespace picovector {
 
-  class image_t;
+  typedef void (*pixel_func_t)(brush_t *brush, int x, int y);
+  typedef void (*span_func_t)(brush_t *brush, int x, int y, int w);
+  typedef void (*mask_span_func_t)(brush_t *brush, int x, int y, int w, uint8_t *mask);
+  struct brush_t {
+    pixel_func_t pixel_func;
+    span_func_t span_func;
+    mask_span_func_t mask_span_func;
+    image_t *target;
 
-  class brush_t {
-  public:
-    virtual ~brush_t() {};
-    void render_spans(image_t *target, _rspan *spans, int count);
-    virtual void render_span(image_t *target, int x, int y, int w) = 0;
-    virtual void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb) = 0;
-    virtual void pixel(uint32_t *dst) = 0;
+    explicit brush_t(image_t *t) : target(t) {}
   };
 
-  class color_brush : public brush_t {
-  public:
-    uint32_t color;
-    color_brush(int r, int g, int b, int a = 255);
+  struct color_brush_t : public brush_t {
+    uint32_t c;
+    uint8_t r, g, b, a;
 
-    void render_span(image_t *target, int x, int y, int w);
-    void pixel(uint32_t *dst);
-    void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb);
+    color_brush_t(image_t *target, uint32_t c);
   };
 
-
-  class brighten_brush : public brush_t {
+  extern const uint8_t patterns[38][8];
+  struct pattern_brush_t : public brush_t {
   public:
-    int amount;
-    brighten_brush(int amount);
+    uint8_t p[8];
+    uint32_t c1;
+    uint32_t c2;
 
-    void render_span(image_t *target, int x, int y, int w);
-    void pixel(uint32_t *dst);
-    void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb) {};
+    pattern_brush_t(image_t *target, uint32_t c1, uint32_t c2, uint8_t pattern_index);
+    pattern_brush_t(image_t *target, uint32_t c1, uint32_t c2, uint8_t *pattern);
   };
 
-  class xor_brush : public brush_t {
+  struct image_brush_t : public brush_t {
   public:
-    uint32_t color;
-    xor_brush(int r, int g, int b);
+    image_t *src;
+    mat3_t inverse_transform;
 
-    void render_span(image_t *target, int x, int y, int w);
-    void pixel(uint32_t *dst);
-    void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb);
+    image_brush_t(image_t *target, image_t *src);
+    image_brush_t(image_t *target, image_t *src, mat3_t *transform);
   };
+
+  // class brighten_brush : public brush_t {
+  // public:
+  //   int amount;
+  //   brighten_brush(int amount) : amount(amount) {}
+  //   void render_span(image_t *target, int x, int y, int w);
+  //   void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb) {};
+  // };
+
+  // class xor_brush : public brush_t {
+  // public:
+  //   uint32_t color;
+  //   xor_brush(uint32_t color) : color(color) {}
+  //   void render_span(image_t *target, int x, int y, int w);
+  //   void render_span_buffer(image_t *target, int x, int y, int w, uint8_t *sb);
+  // };
 
 }

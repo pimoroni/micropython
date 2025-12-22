@@ -4,20 +4,16 @@
 #include "brush.hpp"
 #include "image.hpp"
 #include "shape.hpp"
-#include "point.hpp"
-#include "matrix.hpp"
+#include "types.hpp"
+#include "mat3.hpp"
+#include "blend.hpp"
 
 using std::sort;
 
-// Common memory pool for font/span rendering buffers and PNGDEC
-// This is sized to *just* fit the PNGDEC state which is 48156 bytes on
-// Pico and 48156 on macOS.
-// On Pico it *must* be 32bit aligned (I found out the hard way.)
-#ifdef PICO
-char __attribute__((aligned(4))) PicoVector_working_buffer[48156]; // On device
-#else
-char PicoVector_working_buffer[48240]; // macOS (emulator)
-#endif
+// memory pool for rasterisation, png decoding, and other memory intensive
+// tasks (sized to fit PNGDEC state) - on pico it *must* be 32bit aligned (i
+// found out the hard way.)
+char __attribute__((aligned(4))) PicoVector_working_buffer[working_buffer_size];
 
 // This will completely break imgui or sokol or something
 //because these will be called before the MicroPython heap is initialised.
@@ -85,7 +81,11 @@ namespace picovector {
     rect_t b = shape->bounds();
 
     // clip the shape bounds to the target bounds
-    rect_t cb = b.intersection(target->bounds());
+    rect_t cb = b.intersection(target->clip());
+    cb.x = floor(cb.x);
+    cb.y = floor(cb.y);
+    cb.w = ceil(cb.w);
+    cb.h = ceil(cb.h);
 
     //debug_printf("rendering shape %p with %d paths\n", (void*)shape, int(shape->paths.size()));
     //debug_printf("setup interpolators\n");
@@ -172,12 +172,13 @@ namespace picovector {
         psb++;
       }
 
-      brush->render_span_buffer(target, cb.x, y, cb.w, sb);
+      brush->mask_span_func(brush, cb.x, y, cb.w, sb);
+      //brush->render_span_buffer(target, cb.x, y, cb.w, sb);
     }
 
     bool _debug_points = false;
     if(_debug_points) {
-      color_brush white(255, 255, 255, 50);
+      color_brush_t white(target, rgba(255, 255, 255, 50));
       for(path_t &path : shape->paths) {
         point_t last = path.points.back(); // start with last point to close loop
         last = last.transform(transform);
@@ -185,7 +186,8 @@ namespace picovector {
         for(point_t next : path.points) {
           // _rspan span = {.x = next.x .y = next.y, w = 1, o = 255};
           if(next.x >= 0 && next.x < 160 && next.y >= 0 && next.y < 120) {
-            white.render_span(target, next.x, next.y, 1);
+            white.pixel_func(&white, next.x, next.y);
+            //white.render_span(target, next.x, next.y, 1);
           }
         }
       }

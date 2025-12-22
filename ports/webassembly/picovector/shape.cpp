@@ -77,6 +77,10 @@ namespace picovector {
   //   }
   // }
 
+  void shape_t::brush(brush_t *brush) {
+    this->_brush = brush;
+  }
+
   void shape_t::stroke(float thickness) {
     for(int i = 0; i < (int)this->paths.size(); i++) {
       this->paths[i].stroke(thickness);

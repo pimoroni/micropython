@@ -5,9 +5,8 @@
 
 #include "brush.hpp"
 #include "shape.hpp"
-#include "rect.hpp"
-#include "point.hpp"
-#include "matrix.hpp"
+#include "types.hpp"
+#include "mat3.hpp"
 
 namespace picovector {
 
@@ -16,7 +15,7 @@ namespace picovector {
   class glyph_path_point_t {
   public:
     int8_t x, y;
-    
+
     point_t transform(mat3_t *transform);
   };
 
@@ -32,8 +31,8 @@ namespace picovector {
     int8_t x, y, w, h;
     int8_t advance;
     uint8_t path_count;
-    glyph_path_t *paths;   
-    
+    glyph_path_t *paths;
+
     rect_t bounds(mat3_t *transform);
   };
 

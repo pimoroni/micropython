@@ -80,36 +80,11 @@ namespace picovector {
     return result;
   }
 
-  shape_t* arc(float x, float y, float from, float to, float radius) {
-    shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
+  shape_t* arc(float x, float y, float from, float to, float inner, float outer) {
+   shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
 
-    from = fmod(from, 360.0f);
-    to = fmod(to, 360.0f);
-    float delta = fabs(to - from);
-    int steps = (int)(32.0f * (delta / 360.0f));
-    from *= (M_PI / 180.0f);
-    to *= (M_PI / 180.0f);
-
-    path_t outline(steps);
-
-    float astep = (to - from) / (float)steps;
-    float a = from;
-
-    for(int i = 0; i <= steps; i++) {
-      outline.add_point(sin(a) * radius + x, cos(a) * radius + y);
-      a += astep;
-    }
-
-    result->add_path(outline);
-
-    return result;
-  }
-
-  shape_t* pie(float x, float y, float from, float to, float radius) {
-    shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
-
-    from = fmod(from, 360.0f);
-    to = fmod(to, 360.0f);
+    from = fmod(from, 360.0f) - 90.0f;
+    to = fmod(to, 360.0f) - 90.0f;
     float delta = fabs(to - from);
     int steps = (int)(32.0f * (delta / 360.0f));
     from *= (M_PI / 180.0f);
@@ -121,7 +96,40 @@ namespace picovector {
     float a = from;
 
     for(int i = 0; i <= steps; i++) {
-      outline.add_point(sin(a) * radius + x, cos(a) * radius + y);
+      outline.add_point(cos(a) * outer + x, sin(a) * outer + y);
+      a += astep;
+    }
+
+    a -= astep;
+    for(int i = 0; i <= steps; i++) {
+      outline.add_point(cos(a) * inner + x, sin(a) * inner + y);
+      a -= astep;
+    }
+
+    //outline.add_point(x, y); // + 1 point?
+
+    result->add_path(outline);
+
+    return result;
+  }
+
+  shape_t* pie(float x, float y, float from, float to, float radius) {
+    shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
+
+    from = fmod(from, 360.0f) - 90.0f;
+    to = fmod(to, 360.0f) - 90.0f;
+    float delta = fabs(to - from);
+    int steps = (int)(32.0f * (delta / 360.0f));
+    from *= (M_PI / 180.0f);
+    to *= (M_PI / 180.0f);
+
+    path_t outline(steps + 1); // TODO: is this right?
+
+    float astep = (to - from) / (float)steps;
+    float a = from;
+
+    for(int i = 0; i <= steps; i++) {
+      outline.add_point(cos(a) * radius + x, sin(a) * radius + y);
       a += astep;
     }
 

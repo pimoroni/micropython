@@ -6,9 +6,8 @@
 
 #include "brush.hpp"
 #include "shape.hpp"
-#include "rect.hpp"
-#include "point.hpp"
-#include "matrix.hpp"
+#include "types.hpp"
+#include "mat3.hpp"
 
 using std::vector;
 using std::pair;

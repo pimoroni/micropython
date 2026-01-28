@@ -116,6 +116,14 @@ extern "C" {
     return MP_OBJ_FROM_PTR(result);
   })
 
+  static void font_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+    self(self_in, font_obj_t);
+
+    // TODO: include font name and/or path here?
+    mp_printf(print, "font()");
+  }
+
+
   MPY_BIND_LOCALS_DICT(font,
     MPY_BIND_ROM_PTR_DEL(font),
     MPY_BIND_ROM_PTR_STATIC(load),
@@ -125,6 +133,7 @@ extern "C" {
     type_font,
     MP_QSTR_font,
     MP_TYPE_FLAG_NONE,
+    print, (const void*)font_print,
     locals_dict, &font_locals_dict
   );
 

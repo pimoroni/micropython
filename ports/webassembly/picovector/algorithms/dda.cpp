@@ -1,11 +1,12 @@
 #include <algorithm>
+#include <math.h>
 #include "algorithms.hpp"
 
 namespace picovector {
 
-  void dda(point_t p, point_t v, dda_callback_t cb) {
-    int ix = floor(p.x);
-    int iy = floor(p.y);
+  void dda(vec2_t p, vec2_t v, dda_callback_t cb) {
+    int ix = floorf(p.x);
+    int iy = floorf(p.y);
 
     const float eps = 1e-30f;
     float inv_dx = fabs(v.x) > eps ? 1.0f / v.x : 1e30f;
@@ -41,22 +42,22 @@ namespace picovector {
       float hit_y = p.y + v.y * t_exit;
 
       // calculate the edge which the intersection occured on (0=top, 1=right, 2=bottom, 3=left)
-      bool vertical = abs(hit_x - round(hit_x)) < abs(hit_y - round(hit_y));
+      bool vertical = fabs(hit_x - roundf(hit_x)) < fabs(hit_y - roundf(hit_y));
       int edge = vertical ? (v.x > 0 ? 3 : 1) : (v.y > 0 ? 0 : 2);
 
       // calculate the intersection offset
-      float offset = vertical ? (hit_y - floor(hit_y)) : (hit_x - floor(hit_x));
+      float offset = vertical ? (hit_y - floorf(hit_y)) : (hit_x - floorf(hit_x));
 
-      float distance = sqrt(pow(hit_x - p.x, 2) + pow(hit_y - p.y, 2));
+      float distance = sqrtf(powf(hit_x - p.x, 2) + powf(hit_y - p.y, 2));
 
       // calculate grid square of intersection
       int gx, gy;
       if(vertical) {
-        gx = floor(hit_x + (v.x > 0.0f ? 0.5f : -0.5f));
-        gy = floor(hit_y);
+        gx = floorf(hit_x + (v.x > 0.0f ? 0.5f : -0.5f));
+        gy = floorf(hit_y);
       } else {
-        gx = floor(hit_x);
-        gy = floor(hit_y + (v.y > 0.0f ? 0.5f : -0.5f));
+        gx = floorf(hit_x);
+        gy = floorf(hit_y + (v.y > 0.0f ? 0.5f : -0.5f));
       }
 
       if(!cb(hit_x, hit_y, gx, gy, edge, offset, distance)) {

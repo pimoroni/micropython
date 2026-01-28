@@ -11,10 +11,17 @@ target_sources(usermod_picovector INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/pixel_font.cpp
   ${CMAKE_CURRENT_LIST_DIR}/image.cpp
   ${CMAKE_CURRENT_LIST_DIR}/brush.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/color.cpp
   ${CMAKE_CURRENT_LIST_DIR}/primitive.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/rasteriser.cpp
   ${CMAKE_CURRENT_LIST_DIR}/algorithms/geometry.cpp
   ${CMAKE_CURRENT_LIST_DIR}/algorithms/dda.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/brushes/pattern.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/brushes/color.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/brushes/image.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/filters/blur.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/filters/dither.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/filters/onebit.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/filters/monochrome.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/brush.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/color.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/font.cpp
@@ -25,7 +32,7 @@ target_sources(usermod_picovector INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/micropython/pixel_font.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/shape.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/rect.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/micropython/point.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/micropython/vec2.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/algorithm.cpp
 )
 
@@ -43,10 +50,11 @@ set_source_files_properties(
   ${CMAKE_CURRENT_LIST_DIR}/pixel_font.cpp
   ${CMAKE_CURRENT_LIST_DIR}/image.cpp
   ${CMAKE_CURRENT_LIST_DIR}/brush.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/color.cpp
   ${CMAKE_CURRENT_LIST_DIR}/primitive.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/rasteriser.cpp
   ${CMAKE_CURRENT_LIST_DIR}/algorithms/geometry.cpp
   ${CMAKE_CURRENT_LIST_DIR}/algorithms/dda.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/image_filters/blur.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/brush.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/color.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/font.cpp
@@ -57,7 +65,7 @@ set_source_files_properties(
   ${CMAKE_CURRENT_LIST_DIR}/micropython/pixel_font.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/shape.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/rect.cpp
-  ${CMAKE_CURRENT_LIST_DIR}/micropython/point.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/micropython/vec2.cpp
   ${CMAKE_CURRENT_LIST_DIR}/micropython/algorithm.cpp
   PROPERTIES COMPILE_FLAGS
   "-Wno-unused-variable"

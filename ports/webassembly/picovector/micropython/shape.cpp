@@ -4,7 +4,6 @@
 extern "C" {
 
   #include "py/runtime.h"
-  extern image_obj_t *default_target;
 
   mp_obj_t shape__del__(mp_obj_t self_in) {
     self(self_in, shape_obj_t);
@@ -30,11 +29,11 @@ extern "C" {
 
       path_t poly(points_count);
       for(size_t i = 0; i < points_count; i++) {
-        if(!mp_obj_is_type(points[i], &type_point)) {
+        if(!mp_obj_is_type(points[i], &type_vec2)) {
           mp_raise_msg_varg(&mp_type_TypeError, MP_ERROR_TEXT("invalid parameter, expected custom([p1, p2, p3, ...])"));
         }
-        const point_obj_t *point = (point_obj_t *)MP_OBJ_TO_PTR(points[i]);
-        poly.add_point(point->point);
+        const vec2_obj_t *point = (vec2_obj_t *)MP_OBJ_TO_PTR(points[i]);
+        poly.add_point(point->v);
       }
       shape->shape->add_path(poly);
     }
@@ -56,10 +55,10 @@ extern "C" {
     float x;
     float y;
     float r;
-    if(mp_obj_is_type(args[0], &type_point)) {
-      const point_obj_t *point = (point_obj_t *)MP_OBJ_TO_PTR(args[0]);
-      x = point->point.x;
-      y = point->point.y;
+    if(mp_obj_is_type(args[0], &type_vec2)) {
+      const vec2_obj_t *point = (vec2_obj_t *)MP_OBJ_TO_PTR(args[0]);
+      x = point->v.x;
+      y = point->v.y;
       r = mp_obj_get_float(args[1]);
     }else{
       x = mp_obj_get_float(args[0]);

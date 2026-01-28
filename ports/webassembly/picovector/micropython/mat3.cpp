@@ -65,6 +65,26 @@ extern "C" {
     return MP_OBJ_FROM_PTR(result);
   })
 
+  static mp_obj_t matrix_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs_in) {
+    mat3_obj_t *lhs = (mat3_obj_t*)MP_OBJ_TO_PTR(lhs_in);
+
+    switch (op) {
+      case MP_BINARY_OP_MULTIPLY: {
+        if(mp_obj_is_type(rhs_in, &type_mat3)) {
+          mat3_obj_t *rhs = (mat3_obj_t*)MP_OBJ_TO_PTR(rhs_in);
+          mat3_obj_t *result = mp_obj_malloc(mat3_obj_t, &type_mat3);
+          result->m = lhs->m.multiply(rhs->m);
+          return MP_OBJ_FROM_PTR(result);
+        }
+      }break;
+
+      default: {
+        return MP_OBJ_NULL;
+      }
+    }
+
+    return MP_OBJ_NULL;
+  }
 
   MPY_BIND_LOCALS_DICT(matrix,
     MPY_BIND_ROM_PTR(rotate),
@@ -80,6 +100,7 @@ extern "C" {
       MP_QSTR_mat3,
       MP_TYPE_FLAG_NONE,
       make_new, (const void *)matrix_new,
+      binary_op, (const void *)matrix_binary_op,
       locals_dict, &matrix_locals_dict
   );
 

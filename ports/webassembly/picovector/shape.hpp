@@ -9,13 +9,13 @@ namespace picovector {
 
   class path_t {
   public:
-    std::vector<point_t, PV_STD_ALLOCATOR<point_t>> points;
+    std::vector<vec2_t, PV_STD_ALLOCATOR<vec2_t>> points;
 
     path_t(int point_count = 0);
-    void add_point(const point_t &point);
+    void add_point(const vec2_t &point);
     void add_point(float x, float y);
-    void edge_points(int edge, point_t &s, point_t &e);
-    void offset_edge(point_t &s, point_t &e, float offset);
+    void edge_points(int edge, vec2_t &s, vec2_t &e);
+    void offset_edge(vec2_t &s, vec2_t &e, float offset);
     void stroke(float offset);
     void inflate(float offset);
   };

@@ -5,8 +5,8 @@
 
 namespace picovector {
   struct edge_t {
-    fx16_point_t *p1;
-    fx16_point_t *p2;
+    fx16_vec2_t *p1;
+    fx16_vec2_t *p2;
   };
 
   struct node_t {
@@ -34,21 +34,21 @@ namespace picovector {
   constexpr size_t node_buffer_size = sizeof(node_t) * max_nodes;
   node_t *nodes = (node_t*)(PicoVector_working_buffer + node_buffer_offset);
 
-  // path points buffer size
-  constexpr int max_points = 1024;
-  constexpr size_t point_buffer_offset = node_buffer_offset + node_buffer_size;
-  constexpr size_t point_buffer_size = sizeof(fx16_point_t) * max_points;
-  fx16_point_t *points = (fx16_point_t*)(PicoVector_working_buffer + point_buffer_offset);
+  // path vec2s buffer size
+  constexpr int max_vec2s = 1024;
+  constexpr size_t vec2_buffer_offset = node_buffer_offset + node_buffer_size;
+  constexpr size_t vec2_buffer_size = sizeof(fx16_vec2_t) * max_vec2s;
+  fx16_vec2_t *vec2s = (fx16_vec2_t*)(PicoVector_working_buffer + vec2_buffer_offset);
 
   // edge buffer size
   constexpr int max_edges = 1024;
-  constexpr size_t edge_buffer_offset = point_buffer_offset + point_buffer_size;
+  constexpr size_t edge_buffer_offset = vec2_buffer_offset + vec2_buffer_size;
   constexpr size_t edge_buffer_size = sizeof(edge_t) * max_edges;
   edge_t *edges = (edge_t*)(PicoVector_working_buffer + edge_buffer_offset);
 
   // buffer counters
   int node_count = 0;
-  int point_count = 0;
+  int vec2_count = 0;
   int edge_count = 0;
   fx16_t minx = INT_MAX;
   fx16_t miny = INT_MAX;
@@ -59,7 +59,7 @@ namespace picovector {
 
   void pvr_reset() {
     node_count = 0;
-    point_count = 0;
+    vec2_count = 0;
     edge_count = 0;
     minx = INT_MAX;
     miny = INT_MAX;
@@ -68,12 +68,12 @@ namespace picovector {
   }
 
   // add a new path to the rasteriser with optional transformation matrix
-  void pvr_add_path(point_t *p, int count, mat3_t *transform) {
-    // transform path points, convert to fixed point, scale for antialiasing
-    // and add to points buffer
+  void pvr_add_path(vec2_t *p, int count, mat3_t *transform) {
+    // transform path vec2s, convert to fixed vec2, scale for antialiasing
+    // and add to vec2s buffer
     for(int i = 0; i < count; i++) {
-      point_t t = p->transform(*transform);
-      fx16_point_t *fxt = &points[point_count + i];
+      vec2_t t = p->transform(*transform);
+      fx16_vec2_t *fxt = &vec2s[vec2_count + i];
       fxt->x = f_to_fx16(t.x * aa_scale);
       fxt->y = f_to_fx16(t.y * aa_scale);
 
@@ -86,11 +86,11 @@ namespace picovector {
       p++;
     }
 
-    // build edges, swap point indices so that edges always point "down" and
+    // build edges, swap vec2 indices so that edges always vec2 "down" and
     // discard any horizontal edges
-    fx16_point_t *last = &points[count - 1];
+    fx16_vec2_t *last = &vec2s[count - 1];
     for(int i = 0; i < count; i++) {
-      fx16_point_t *next = &points[point_count + i];
+      fx16_vec2_t *next = &vec2s[vec2_count + i];
 
       if(last->y == next->y) continue; // skip horizontal edges
 
@@ -107,7 +107,7 @@ namespace picovector {
       last = next;
     }
 
-    point_count += count;
+    vec2_count += count;
   }
 
   void pvr_build_nodes(const bounds_t &tb) {
@@ -115,21 +115,21 @@ namespace picovector {
 
     // printf("- edge count %d\n", edge_count);
     // printf("working buffer size = %d\n", int(sizeof(PicoVector_working_buffer)));
-    // printf("buffer size total = %d\n", int(point_buffer_offset + point_buffer_size));
+    // printf("buffer size total = %d\n", int(vec2_buffer_offset + vec2_buffer_size));
 
     for(int i = 0; i < edge_count; i++) {
       // printf(" - edge %d\n", i);
       // printf(" - %p -> %p\n", edges[i].p1, edges[i].p2);
       // printf(" - %d, %d -> %d, %d\n", edges[i].p1->x >> 16, edges[i].p1->y >> 16, edges[i].p2->x >> 16, edges[i].p2->y >> 16);
 
-      fx16_point_t *p1 = edges[i].p1;
-      fx16_point_t *p2 = edges[i].p2;
+      fx16_vec2_t *p1 = edges[i].p1;
+      fx16_vec2_t *p2 = edges[i].p2;
 
       // tile offset in fp16
       fx16_t tx = (tb.x1 << 16);
       fx16_t ty = (tb.y1 << 16);
 
-      // adjust edge points relative to tile offset
+      // adjust edge vec2s relative to tile offset
       fx16_t sx = p1->x - tx;
       fx16_t sy = p1->y - ty;
       fx16_t ex = p2->x - tx;
@@ -270,7 +270,7 @@ namespace picovector {
   }
 
   // create an edge interpolator
-  void pr_add_edge(point_t p1, point_t p2) {
+  void pr_add_edge(vec2_t p1, vec2_t p2) {
     if(ei_count < max_ei) {
       eis[ei_count] = ei(p1, p2);
       ei_count++;
@@ -290,10 +290,10 @@ namespace picovector {
   //   // setup edge interpolators
   //   int edge_interpolator_count = 0;
   //   for(auto &path : shape->paths) {
-  //     auto last = path.points.back(); // start with last point to close loop
+  //     auto last = path.vec2s.back(); // start with last vec2 to close loop
   //     last = last.transform(transform);
 
-  //     for(auto next : path.points) {
+  //     for(auto next : path.vec2s) {
   //       next = next.transform(transform);
 
   //       // update transformed bounds

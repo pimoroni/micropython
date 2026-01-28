@@ -4,191 +4,255 @@
 #include "brush.hpp"
 #include "image.hpp"
 #include "shape.hpp"
+#include "font.hpp"
 #include "types.hpp"
 #include "mat3.hpp"
 #include "blend.hpp"
 
-using std::sort;
+using std::sort, std::min, std::max;
 
 // memory pool for rasterisation, png decoding, and other memory intensive
 // tasks (sized to fit PNGDEC state) - on pico it *must* be 32bit aligned (i
 // found out the hard way.)
 char __attribute__((aligned(4))) PicoVector_working_buffer[working_buffer_size];
 
-// This will completely break imgui or sokol or something
-//because these will be called before the MicroPython heap is initialised.
+#define TILE_WIDTH 32
+#define TILE_HEIGHT 16
+#define MAX_NODES_PER_SCANLINE 64
 
-bool micropython_gc_enabled = false;
-/*
-void * operator new(std::size_t n)// throw(std::bad_alloc)
-{
-    //return malloc(n);
-    if(micropython_gc_enabled) {
-      std::cout << "new: m_tracked_calloc(" << n << ")" << std::endl;
-      return m_tracked_calloc(n, 1);
-    } else {
-      return malloc(n);
+#define TILE_BUFFER_SIZE (TILE_WIDTH * TILE_HEIGHT * sizeof(uint8_t)) // 8kB tile buffer
+#define NODE_BUFFER_ROW_SIZE (MAX_NODES_PER_SCANLINE * sizeof(int16_t))
+#define NODE_BUFFER_SIZE (TILE_HEIGHT * 4 * NODE_BUFFER_ROW_SIZE) // 32kB node buffer
+#define NODE_COUNT_BUFFER_SIZE (TILE_HEIGHT * 4 * sizeof(uint8_t)) // 256 byte node count buffer
+
+// buffer that each tile is rendered into before callback
+uint8_t *tile_buffer = (uint8_t *)&PicoVector_working_buffer[0];
+int16_t *node_buffer = (int16_t *)&PicoVector_working_buffer[TILE_BUFFER_SIZE];
+uint8_t *node_count_buffer = (uint8_t *)&PicoVector_working_buffer[TILE_BUFFER_SIZE + NODE_BUFFER_SIZE];
+
+static inline void insertion_sort_i16(int16_t* a, int n) {
+  for (int i = 1; i < n; ++i) {
+    int16_t key = a[i];
+    int j = i - 1;
+    while (j >= 0 && a[j] > key) {
+      a[j + 1] = a[j];
+      --j;
     }
+    a[j + 1] = key;
+  }
 }
-
-void operator delete(void * p)// throw()
-{
-    //std::cout << "free: " << reinterpret_cast<void*>(p) << std::dec << std::endl;
-    //free(p);
-    if(micropython_gc_enabled) {
-      std::cout << "free: m_tracked_free(" << reinterpret_cast<void*>(p) << std::dec << ")" << std::endl;
-      m_tracked_free(p);
-    } else {
-      free(p);
-    }
-}
-*/
-
-//using namespace std;
-
-//#define debug_printf(fmt, ...)
-//#define debug_printf(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__)
 
 namespace picovector {
-  struct _edgeinterp {
-    point_t s;
-    point_t e;
-    float step;
 
-    _edgeinterp() {
+  int sign(int v) {return (v > 0) - (v < 0);}
 
+  void add_line_segment_to_nodes(vec2_t start, vec2_t end, rect_t *tb) {
+    if(end.y < start.y) {
+      vec2_t tmp = start; start = end; end = tmp;
     }
 
-    _edgeinterp(point_t p1, point_t p2) {
-      if(p1.y < p2.y) {
-        s = p1; e = p2;
-      } else {
-        s = p2; e = p1;
+    if (end.y < 0.0f || start.y > tb->h || end.y == start.y) return;
+
+    float x = start.x;
+    float dx = (end.x - start.x) / (end.y - start.y);
+
+    if(start.y < 0.0f) {
+      x += fabs(start.y) * dx;
+      start.y = 0.0f;
+    }
+
+    if(end.y > tb->h) {
+      end.y = tb->h;
+    }
+
+    int minx = 0;
+    int maxx = ceilf(tb->w);
+
+    int sy = int(start.y);
+    int ey = int(end.y);
+
+    for(int iy = sy; iy < ey; iy++) {
+      int ix = max(min(int(x), maxx), minx);
+
+      node_buffer[(iy * MAX_NODES_PER_SCANLINE) + node_count_buffer[iy]] = ix;
+      node_count_buffer[iy]++;
+
+      x += dx;
+    }
+  }
+
+  void build_nodes(path_t *path, rect_t *tb, mat3_t *transform, uint aa) {
+    vec2_t offset = tb->tl();
+    // start with the last point to close the loop, transform it, scale for antialiasing, and offset to tile origin
+    vec2_t last = path->points[path->points.size() - 1];
+    if(transform) last = last.transform(transform);
+    last *= (1 << aa);
+    last -= offset;
+
+    for(auto next : path->points) {
+      if(transform) next = next.transform(transform);
+      next *= (1 << aa);
+      next -= offset;
+
+      //printf("   - add line segment %d, %d -> %d, %d\n", int(last.x), int(last.y), int(next.x), int(next.y));
+      add_line_segment_to_nodes(last, next, tb);
+      last = next;
+    }
+  }
+
+  int compare_nodes(const void* a, const void* b) {
+    return *((int16_t*)a) - *((int16_t*)b);
+  }
+
+  uint8_t alpha_map_none[2] = {0, 255};
+  uint8_t alpha_map_x4[5] = {0, 63, 127, 190, 255};
+  uint8_t alpha_map_x16[17] = {0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 255};
+
+  rect_t render_nodes(rect_t *tb, uint aa) {
+    int minx = tb->w;
+    int miny = tb->h;
+    int maxx = 0;
+    int maxy = 0;
+
+    for(int y = 0; y <= int(tb->h); y++) {
+      if(node_count_buffer[y] == 0) {
+        continue; // no nodes on this raster line
       }
-      step = (e.x - s.x) / (e.y - s.y);
+
+      miny = min(miny, y);
+      maxy = max(maxy, y);
+
+      // sort scanline nodes
+      int16_t *nodes = &node_buffer[(y * MAX_NODES_PER_SCANLINE)];
+      insertion_sort_i16(nodes, node_count_buffer[y]);
+
+      uint8_t *row_data = &tile_buffer[(y >> aa) * TILE_WIDTH];
+
+      for(uint32_t i = 0; i < node_count_buffer[y]; i += 2) {
+        int sx = *nodes++;
+        int ex = *nodes++;
+
+        if(sx == ex) { // empty span, nothing to do
+          continue;
+        }
+
+        minx = min(minx, sx);
+        maxx = max(maxx, ex);
+
+        do {
+          row_data[sx >> aa]++;
+        } while(++sx < ex);
+      }
+
+      // for(int i = 0; i < TILE_WIDTH; i++) {
+      //   row_data[i] = 1;
+      // }
+
+
     }
 
-    void next(float y, float *nodes, int &node_count) {
-      if(y < s.y || y >= e.y) return;
-      nodes[node_count++] = s.x + ((y - s.y) * step);
+    if(minx > maxx || miny > maxy) {
+      return rect_t(0, 0, 0, 0);
     }
-  };
+
+    int out_minx = (minx >> aa);
+    int out_maxx = ((maxx - (1 << aa)) >> aa);
+    int out_miny = (miny >> aa);
+    int out_maxy = ((maxy - (1 << aa)) >> aa);
+
+    return rect_t(out_minx, out_miny,
+              (out_maxx - out_minx) + 1,
+              (out_maxy - out_miny) + 2);
+  }
 
   void render(shape_t *shape, image_t *target, mat3_t *transform, brush_t *brush) {
-    if(!shape->paths.size()) {return;};
 
-    // determine the intersection between transformed polygon and target image
-    rect_t b = shape->bounds();
+    if(shape->paths.empty()) return;
 
-    // clip the shape bounds to the target bounds
-    rect_t cb = b.intersection(target->clip());
-    cb.x = floor(cb.x);
-    cb.y = floor(cb.y);
-    cb.w = ceil(cb.w);
-    cb.h = ceil(cb.h);
+    // antialias level of target image
+    uint aa = (uint)target->antialias();
 
-    //debug_printf("rendering shape %p with %d paths\n", (void*)shape, int(shape->paths.size()));
-    //debug_printf("setup interpolators\n");
-    // setup interpolators for each edge of the polygon
-    //static _edgeinterp edge_interpolators[256];
-    auto edge_interpolators = new(PicoVector_working_buffer) _edgeinterp[256];
-    int edge_interpolator_count = 0;
-    for(path_t &path : shape->paths) {
-      point_t last = path.points.back(); // start with last point to close loop
-      last = last.transform(transform);
-      //debug_printf("- adding path with %d points\n", int(path.points.size()));
-      for(point_t next : path.points) {
-        next = next.transform(transform);
-        // add new edge interpolator
-        edge_interpolators[edge_interpolator_count] = _edgeinterp(last, next);
-        edge_interpolator_count++;
-        last = next;
-      }
-    }
+    uint8_t *p_alpha_map = alpha_map_none;
+    if(aa == 1) p_alpha_map = alpha_map_x4;
+    if(aa == 2) p_alpha_map = alpha_map_x16;
 
-    // for each scanline we step the interpolators and build the list of
-    // intersecting nodes for that scaline
-    static float nodes[128]; // up to 128 nodes (64 spans) per scanline
-    const size_t SPAN_BUFFER_SIZE = 512;
-    //static _rspan spans[SPAN_BUFFER_SIZE];
-    static auto spans = new((uint8_t *)PicoVector_working_buffer + (sizeof(_edgeinterp) * 256)) _rspan[SPAN_BUFFER_SIZE];
+    //mask_span_func_t sf = target->_mask_span_func;
+    //printf("render shape\n");
 
-    //static uint8_t sb[SPAN_BUFFER_SIZE];
-    static auto sb = new((uint8_t *)PicoVector_working_buffer + (sizeof(_edgeinterp) * 256) + (sizeof(_edgeinterp) * SPAN_BUFFER_SIZE)) uint8_t[SPAN_BUFFER_SIZE];
+    // determine bounds of shape to be rendered
+    rect_t sb = shape->bounds().round();
 
-    int aa = target->antialias();
+    rect_t clip = target->clip();
 
-    int sy = cb.y;
-    int ey = cb.y + cb.h;
+    masked_span_func_t fn = target->_masked_span_func;
 
-    // TODO: we can special case a faster version for no AA here
+    //printf("- shape bounds %d, %d (%d x %d)\n", sbx, sby, sbw, sbh);
+    //printf("- clip bounds %d, %d (%d x %d)\n", int(clip.x), int(clip.y), int(clip.w), int(clip.h));
 
-    int span_count = 0;
-    for(float y = sy; y < ey; y++) {
-      // clear the span buffer
-      memset(sb, 0, cb.w);
+    // iterate over tiles
+    //printf("> processing tiles\n");
+    for(int y = sb.y; y < sb.y + sb.h; y += TILE_HEIGHT) {
+      for(int x = sb.x; x < sb.x + sb.w; x += TILE_WIDTH) {
+        //printf(" > tile %d x %d\n", x, y);
+        rect_t tb = rect_t(x, y, TILE_WIDTH, TILE_HEIGHT);
 
-      // loop over y sub samples
-      for(int yss = 0; yss < aa; yss++) {
-        float ysso = (1.0f / float(aa + 1)) * float(yss + 1);
+        //printf("  - tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
 
-        int node_count = 0;
+        tb = clip.intersection(tb).intersection(sb).round();
+        if(tb.empty()) { continue; } // if tile empty, skip it
 
-        for(int i = 0; i < edge_interpolator_count; i++) {
-          edge_interpolators[i].next(y + ysso, nodes, node_count);
+        //printf("  - clipped tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
+        // screen coordinates for clipped tile
+        int sx = tb.x;
+        int sy = tb.y;
+        int sw = tb.w;
+        int sh = tb.h;
+
+        tb.x *= (1 << aa);
+        tb.y *= (1 << aa);
+        tb.w *= (1 << aa);
+        tb.h *= (1 << aa);
+
+        //printf("  - clipped and scaled tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
+
+        // clear existing tile data and nodes
+        memset(node_count_buffer, 0, NODE_COUNT_BUFFER_SIZE);
+        for (int row = 0; row < sh; ++row) {
+          memset(&tile_buffer[row * TILE_WIDTH], 0, sw);
         }
 
-        // sort the nodes so that neighouring pairs represent render spans
-        sort(nodes, nodes + node_count);
+        //memset(tile_buffer, 0, TILE_WIDTH * TILE_HEIGHT);
 
-        for(int i = 0; i < node_count; i += 2) {
-          int x1 = round((nodes[i + 0] - cb.x) * aa);
-          int x2 = round((nodes[i + 1] - cb.x) * aa);
-
-          x1 = min(max(0, x1), int(cb.w * aa));
-          x2 = min(max(0, x2), int(cb.w * aa));
-          uint8_t *psb = sb;
-          for(int j = x1; j < x2; j++) {
-            psb[j >> (aa >> 1)]++;
-          }
+        // build the nodes for each path
+        for(auto &path : shape->paths) {
+          build_nodes(&path, &tb, transform, aa);
         }
-      }
 
-      // todo: this could be more efficient if we buffer multiple scanlines at once
-      //debug_printf("render_span_buffer\n");
-      static uint8_t aa_none[2] = {0, 255};
-      static uint8_t aa_x2[5] = {0, 64, 128, 192, 255};
-      static uint8_t aa_x4[17] = {0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 255};
+        rect_t rb = render_nodes(&tb, aa).round();
 
-      uint8_t *aa_lut = aa_none;
-      aa_lut = aa == 2 ? aa_x2 : aa_lut;
-      aa_lut = aa == 4 ? aa_x4 : aa_lut;
+        if(tb.empty()) { continue; }
 
-      // scale span buffer alpha values
-      int c = cb.w;
-      uint8_t *psb = sb;
-      while(c--) {
-        *psb = aa_lut[*psb];
-        psb++;
-      }
+        int rbx = rb.x;
+        int rby = rb.y;
+        int rbw = rb.w;
+        int rbh = rb.h;
 
-      brush->mask_span_func(brush, cb.x, y, cb.w, sb);
-      //brush->render_span_buffer(target, cb.x, y, cb.w, sb);
-    }
+        for(int ty = rby; ty < rby + rbh; ty++) {
+          uint8_t* p;
 
-    bool _debug_points = false;
-    if(_debug_points) {
-      color_brush_t white(target, rgba(255, 255, 255, 50));
-      for(path_t &path : shape->paths) {
-        point_t last = path.points.back(); // start with last point to close loop
-        last = last.transform(transform);
-        //debug_printf("- adding path with %d points\n", int(path.points.size()));
-        for(point_t next : path.points) {
-          // _rspan span = {.x = next.x .y = next.y, w = 1, o = 255};
-          if(next.x >= 0 && next.x < 160 && next.y >= 0 && next.y < 120) {
-            white.pixel_func(&white, next.x, next.y);
-            //white.render_span(target, next.x, next.y, 1);
+          // scale tile buffer values to alpha values
+          p = &tile_buffer[ty * TILE_WIDTH + rbx];
+          int c = rbw;
+          while(c--) {
+            *p = p_alpha_map[*p];
+            p++;
           }
+
+          // render tile span
+          p = &tile_buffer[ty * TILE_WIDTH + rbx];
+
+          fn(target, brush, sx + rbx, sy + ty, rbw, p);
+          //sf(target, brush, sx + rbx, sy + ty, rbw, (uint8_t*)p);
         }
       }
     }
@@ -196,4 +260,136 @@ namespace picovector {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  void build_glyph_nodes(glyph_path_t *path, rect_t *tb, mat3_t *transform, uint aa) {
+    vec2_t offset = tb->tl();
+    // start with the last point to close the loop, transform it, scale for antialiasing, and offset to tile origin
+    glyph_path_point_t *p = &path->points[path->point_count - 1];
+    vec2_t last = vec2_t(p->x, p->y);
+    if(transform) last = last.transform(transform);
+    last *= (1 << aa);
+    last -= offset;
+
+    for(int i = 0; i < path->point_count; i++) {
+      p = &path->points[i];
+      vec2_t next = vec2_t(p->x, p->y);
+      if(transform) next = next.transform(transform);
+      next *= (1 << aa);
+      next -= offset;
+
+      //printf("   - add line segment %d, %d -> %d, %d\n", int(last.x), int(last.y), int(next.x), int(next.y));
+      add_line_segment_to_nodes(last, next, tb);
+      last = next;
+    }
+  }
+
+  void render_glyph(glyph_t *glyph, image_t *target, mat3_t *transform, brush_t *brush) {
+
+    if(!glyph->path_count) return;
+
+    // antialias level of target image
+    uint aa = (uint)target->antialias();
+
+
+    uint8_t *p_alpha_map = alpha_map_none;
+    if(aa == 1) p_alpha_map = alpha_map_x4;
+    if(aa == 2) p_alpha_map = alpha_map_x16;
+
+    //printf("render shape\n");
+
+    // determine bounds of shape to be rendered
+    rect_t sb = glyph->bounds(transform).round();
+
+    rect_t clip = target->clip();
+
+    masked_span_func_t fn = target->_masked_span_func;
+
+    //printf("- shape bounds %d, %d (%d x %d)\n", sbx, sby, sbw, sbh);
+    //printf("- clip bounds %d, %d (%d x %d)\n", int(clip.x), int(clip.y), int(clip.w), int(clip.h));
+
+    // iterate over tiles
+    //printf("> processing tiles\n");
+    for(int y = sb.y; y < sb.y + sb.h; y += TILE_HEIGHT) {
+      for(int x = sb.x; x < sb.x + sb.w; x += TILE_WIDTH) {
+        //printf(" > tile %d x %d\n", x, y);
+        rect_t tb = rect_t(x, y, TILE_WIDTH, TILE_HEIGHT);
+
+        //printf("  - tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
+
+        tb = clip.intersection(tb).intersection(sb).round();
+        if(tb.empty()) { continue; } // if tile empty, skip it
+
+        //printf("  - clipped tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
+        // screen coordinates for clipped tile
+        int sx = tb.x;
+        int sy = tb.y;
+        int sw = tb.w;
+        int sh = tb.h;
+
+        tb.x *= (1 << aa);
+        tb.y *= (1 << aa);
+        tb.w *= (1 << aa);
+        tb.h *= (1 << aa);
+
+        //printf("  - clipped and scaled tile bounds %d, %d (%d x %d)\n", int(tb.x), int(tb.y), int(tb.w), int(tb.h));
+
+        // clear existing tile data and nodes
+        memset(node_count_buffer, 0, NODE_COUNT_BUFFER_SIZE);
+        for (int row = 0; row < sh; ++row) {
+          memset(&tile_buffer[row * TILE_WIDTH], 0, sw);
+        }
+
+        //memset(tile_buffer, 0, TILE_WIDTH * TILE_HEIGHT);
+
+        // build the nodes for each path
+        for(int i = 0; i < glyph->path_count; i++) {
+          glyph_path_t *p = &glyph->paths[i];
+          build_glyph_nodes(p, &tb, transform, aa);
+        }
+
+        rect_t rb = render_nodes(&tb, aa).round();
+
+        if(tb.empty()) { continue; }
+
+        int rbx = rb.x;
+        int rby = rb.y;
+        int rbw = rb.w;
+        int rbh = rb.h;
+
+        for(int ty = rby; ty < rby + rbh; ty++) {
+          uint8_t* p;
+
+          // scale tile buffer values to alpha values
+          p = &tile_buffer[ty * TILE_WIDTH + rbx];
+          int c = rbw;
+          while(c--) {
+            *p = p_alpha_map[*p];
+            p++;
+          }
+
+          // render tile span
+          p = &tile_buffer[ty * TILE_WIDTH + rbx];
+          fn(target, brush, sx + rbx, sy + ty, rbw, p);
+        }
+      }
+    }
+  }
 }

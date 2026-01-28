@@ -37,7 +37,7 @@ namespace picovector {
     rect_t tb = target->clip();
     rect_t b(tb.x + tb.w, tb.y + tb.h, 0, this->height);
 
-    point_t caret(0, 0);
+    vec2_t caret(0, 0);
     while(*text != '\0') {
       // special case for "space"
       if(*text == 32) {
@@ -80,6 +80,8 @@ namespace picovector {
     //uint32_t *dst = (uint32_t *)target->ptr(0, yf);
     uint32_t row_stride = target->row_stride() / 4;
 
+    span_func_t fn = target->_span_func;
+
     data += yoff * bytes_per_row;
     for(int yo = yf; yo < yf + yc; yo++) {
       for(int xo = xf; xo < xf + xc; xo++) {
@@ -88,7 +90,7 @@ namespace picovector {
         if(b & (0b1 << (7 - (bit & 0b111)))) {
           //brush->pixel(&dst[xo]);
           //brush->render_span(target, xo, yo, 1);
-          brush->pixel_func(brush, xo, yo);
+          fn(target, brush, xo, yo, 1);
         }
       }
 

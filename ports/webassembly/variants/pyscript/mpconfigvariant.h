@@ -2,3 +2,4 @@
 #define MICROPY_GC_SPLIT_HEAP                   (1)
 #define MICROPY_GC_SPLIT_HEAP_AUTO              (1)
 #define MICROPY_PY_WEAKREF                      (1)
+#define MICROPY_TRACKED_ALLOC                   (1)

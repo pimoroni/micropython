@@ -125,6 +125,14 @@ extern "C" {
     dest[1] = MP_OBJ_SENTINEL;
   }
 
+  static void pixel_font_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+    self(self_in, pixel_font_obj_t);
+
+    // TODO: include font name and/or path here?
+    mp_printf(print, "pixel_font()");
+  }
+
+
   MPY_BIND_LOCALS_DICT(pixel_font,
       MPY_BIND_ROM_PTR_DEL(pixel_font),
       MPY_BIND_ROM_PTR_STATIC(load),
@@ -134,6 +142,7 @@ extern "C" {
       type_pixel_font,
       MP_QSTR_pixel_font,
       MP_TYPE_FLAG_NONE,
+      print, (const void *)pixel_font_print,
       attr, (const void *)pixel_font_attr,
       locals_dict, &pixel_font_locals_dict
   );

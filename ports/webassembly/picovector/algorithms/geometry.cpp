@@ -3,13 +3,13 @@
 
 namespace picovector {
 
-  bool clip_line(point_t &p1, point_t &p2, const rect_t r) {
-    point_t v1 = p1;
-    point_t v2 = p2;
+  bool clip_line(vec2_t &p1, vec2_t &p2, const rect_t r) {
+    vec2_t v1 = p1;
+    vec2_t v2 = p2;
 
     enum {CS_LEFT = 1, CS_RIGHT = 2, CS_BOTTOM = 4, CS_TOP = 8};
-    auto cs_outcode = [](const point_t &p, const rect_t &b) {
-      // determine cohen-sutherland outcode for point
+    auto cs_outcode = [](const vec2_t &p, const rect_t &b) {
+      // determine cohen-sutherland outcode for vec2
       int code = 0;
       if (p.x < b.x) code |= CS_LEFT;
       else if (p.x > b.x + b.w) code |= CS_RIGHT;
@@ -28,7 +28,7 @@ namespace picovector {
       }else if(out1 & out2) {
         return false; // no part of line segment within bounds
       }else{
-        // at least one endpoint is outside; pick it
+        // at least one endvec2 is outside; pick it
         int out = out1 ? out1 : out2;
         float x, y;
         float dx = v2.x - v1.x, dy = v2.y - v1.y;

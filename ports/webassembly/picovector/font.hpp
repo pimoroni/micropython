@@ -16,7 +16,7 @@ namespace picovector {
   public:
     int8_t x, y;
 
-    point_t transform(mat3_t *transform);
+    vec2_t transform(mat3_t *transform);
   };
 
   class glyph_path_t {

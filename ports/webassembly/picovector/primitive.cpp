@@ -37,7 +37,7 @@ namespace picovector {
     float theta = (M_PI / 2) * q; // select start theta for this quadrant
     for(int i = 0; i <= steps; i++) {
       float xo = sin(theta) * r, yo = cos(theta) * r;
-      path->add_point((point_t){x + xo, y + yo});
+      path->add_point((vec2_t){x + xo, y + yo});
       theta += delta;
     }
   }
@@ -46,11 +46,11 @@ namespace picovector {
     shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
     path_t poly(4);
 
-    // render corners (either hard if radius == 0 or calculate rounded corner points)
-    r1 == 0 ? poly.add_point((point_t){x    , y    }) : _build_rounded_rectangle_corner(&poly, x + 0 + r1, y + 0 + r1, r1, 3);
-    r2 == 0 ? poly.add_point((point_t){x + w, y    }) : _build_rounded_rectangle_corner(&poly, x + w - r2, y + 0 + r2, r2, 2);
-    r3 == 0 ? poly.add_point((point_t){x + w, y + h}) : _build_rounded_rectangle_corner(&poly, x + w - r3, y + h - r3, r3, 1);
-    r4 == 0 ? poly.add_point((point_t){x    , y + h}) : _build_rounded_rectangle_corner(&poly, x + 0 + r4, y + h - r4, r4, 0);
+    // render corners (either hard if radius == 0 or calculate rounded corner vec2s)
+    r1 == 0 ? poly.add_point((vec2_t){x    , y    }) : _build_rounded_rectangle_corner(&poly, x + 0 + r1, y + 0 + r1, r1, 3);
+    r2 == 0 ? poly.add_point((vec2_t){x + w, y    }) : _build_rounded_rectangle_corner(&poly, x + w - r2, y + 0 + r2, r2, 2);
+    r3 == 0 ? poly.add_point((vec2_t){x + w, y + h}) : _build_rounded_rectangle_corner(&poly, x + w - r3, y + h - r3, r3, 1);
+    r4 == 0 ? poly.add_point((vec2_t){x    , y + h}) : _build_rounded_rectangle_corner(&poly, x + 0 + r4, y + h - r4, r4, 0);
 
     result->add_path(poly);
     return result;
@@ -64,10 +64,10 @@ namespace picovector {
     shape_t *result = new(PV_MALLOC(sizeof(shape_t))) shape_t(1);
 
     //shape *result = new shape(1);
-    constexpr int points = 32;
-    path_t poly(points);
-    for(int i = 0; i < points; i++) {
-        float t = 2 * M_PI * (points - i) / points;
+    constexpr int vec2s = 32;
+    path_t poly(vec2s);
+    for(int i = 0; i < vec2s; i++) {
+        float t = 2 * M_PI * (vec2s - i) / vec2s;
         float ct = cos(t);
         float st = sin(t);
 
@@ -106,7 +106,7 @@ namespace picovector {
       a -= astep;
     }
 
-    //outline.add_point(x, y); // + 1 point?
+    //outline.add_point(x, y); // + 1 vec2?
 
     result->add_path(outline);
 
@@ -133,7 +133,7 @@ namespace picovector {
       a += astep;
     }
 
-    outline.add_point(x, y); // + 1 point?
+    outline.add_point(x, y); // + 1 vec2?
 
     result->add_path(outline);
 

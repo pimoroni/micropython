@@ -133,30 +133,36 @@ SRC_C += \
     pngdec/zutil.c
 
 SRC_CXX = \
-	picovector/algorithms/dda.cpp \
+	picovector/micropython/picovector.cpp \
+	picovector/picovector.cpp \
+	picovector/shape.cpp \
+	picovector/font.cpp \
+	picovector/pixel_font.cpp \
+	picovector/image.cpp \
+	picovector/brush.cpp \
+	picovector/color.cpp \
+	picovector/primitive.cpp \
 	picovector/algorithms/geometry.cpp \
-	picovector/micropython/algorithm.cpp \
+	picovector/algorithms/dda.cpp \
+	picovector/brushes/pattern.cpp \
+	picovector/brushes/color.cpp \
+	picovector/brushes/image.cpp \
+	picovector/filters/blur.cpp \
+	picovector/filters/dither.cpp \
+	picovector/filters/onebit.cpp \
+	picovector/filters/monochrome.cpp \
 	picovector/micropython/brush.cpp \
 	picovector/micropython/color.cpp \
 	picovector/micropython/font.cpp \
-	picovector/micropython/image.cpp \
 	picovector/micropython/image_png.cpp \
+	picovector/micropython/image.cpp \
 	picovector/micropython/input.cpp \
 	picovector/micropython/mat3.cpp \
-	picovector/micropython/picovector.cpp \
 	picovector/micropython/pixel_font.cpp \
-	picovector/micropython/point.cpp \
-	picovector/micropython/rect.cpp \
 	picovector/micropython/shape.cpp \
-	picovector/brush.cpp \
-	picovector/font.cpp \
-	picovector/image.cpp \
-	picovector/matrix.cpp \
-	picovector/picovector.cpp \
-	picovector/pixel_font.cpp \
-	picovector/primitive.cpp \
-	picovector/rasteriser.cpp \
-	picovector/shape.cpp \
+	picovector/micropython/rect.cpp \
+	picovector/micropython/vec2.cpp \
+	picovector/micropython/algorithm.cpp \
 	pngdec/PNGdec.cpp
 
 # List of sources for qstr extraction.

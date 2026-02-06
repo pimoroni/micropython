@@ -85,6 +85,11 @@
 #define MICROPY_HW_ENABLE_PSRAM (0)
 #endif
 
+// Maximum amount of PSRAM to use for GC heap
+#ifndef MICROPY_HW_PSRAM_MAX_HEAP_SIZE
+#define MICROPY_HW_PSRAM_MAX_HEAP_SIZE (8 * 1024 * 1024)
+#endif
+
 // Memory allocation policies
 #if MICROPY_HW_ENABLE_PSRAM
 #define MICROPY_GC_STACK_ENTRY_TYPE             uint32_t

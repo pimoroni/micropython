@@ -132,11 +132,12 @@ int main(int argc, char **argv) {
 
     #if MICROPY_HW_ENABLE_PSRAM
     if (psram_size) {
+        size_t psram_heap_size = MIN(psram_size, MICROPY_HW_PSRAM_MAX_HEAP_SIZE);
         #if MICROPY_GC_SPLIT_HEAP
         gc_init(&__GcHeapStart, &__GcHeapEnd);
-        gc_add((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        gc_add((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_heap_size));
         #else
-        gc_init((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_size));
+        gc_init((void *)PSRAM_BASE, (void *)(PSRAM_BASE + psram_heap_size));
         #endif
     } else {
         gc_init(&__GcHeapStart, &__GcHeapEnd);

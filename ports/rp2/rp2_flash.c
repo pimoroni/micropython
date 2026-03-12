@@ -40,6 +40,26 @@
 #else
 #include "hardware/structs/ssi.h"
 #endif
+#include "hardware/irq.h"
+
+#ifdef PICO_RP2350
+__force_inline static uint32_t __get_BASEPRI(void)
+{
+  uint32_t result;
+  pico_default_asm_volatile ("mrs %0, BASEPRI" : "=r" (result) :: "memory");
+  return (result);
+}
+
+__force_inline static void __set_BASEPRI_MAX(uint32_t basePri)
+{
+  pico_default_asm_volatile ("msr BASEPRI_MAX, %0"::"r" (basePri) : "memory");
+}
+
+__force_inline static void __set_BASEPRI(uint32_t basePri)
+{
+  pico_default_asm_volatile ("msr BASEPRI, %0"::"r" (basePri) : "memory");
+}
+#endif
 
 #define BLOCK_SIZE_BYTES (FLASH_SECTOR_SIZE)
 
@@ -173,6 +193,11 @@ static uint32_t begin_critical_flash_section(void) {
         multicore_lockout_start_blocking();
     }
     uint32_t state = save_and_disable_interrupts();
+#ifdef PICO_RP2350
+    uint32_t base_pri = __get_BASEPRI();
+    __set_BASEPRI_MAX(0x60);
+    __isb(); // Instruction synchronization barrier
+#endif
 
     #if MICROPY_HW_ENABLE_PSRAM
     // We're about to invalidate the XIP cache, clean it first to commit any dirty writes to PSRAM
@@ -184,17 +209,35 @@ static uint32_t begin_critical_flash_section(void) {
         maintenance_ptr[i] = 0;
     }
     #endif
-
+#ifdef PICO_RP2350
+    restore_interrupts(state);
+    return base_pri;
+#else
     return state;
+#endif
 }
 
 static void end_critical_flash_section(uint32_t state) {
     // The ROM function to program flash will have reset flash and PSRAM timings to defaults
+#ifdef PICO_RP2350
+    // for RP2350 "state" is the old PRIMASK base priority
+    uint32_t interrupt_state = save_and_disable_interrupts();
+    __set_BASEPRI(state);
+    __isb();
+
+    rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
+    #if MICROPY_HW_ENABLE_PSRAM
+    psram_init(MICROPY_HW_PSRAM_CS_PIN);
+    #endif
+
+    restore_interrupts(interrupt_state);
+#else
     rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
     #if MICROPY_HW_ENABLE_PSRAM
     psram_init(MICROPY_HW_PSRAM_CS_PIN);
     #endif
     restore_interrupts(state);
+#endif
     if (use_multicore_lockout()) {
         multicore_lockout_end_blocking();
     }

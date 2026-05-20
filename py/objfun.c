@@ -25,6 +25,7 @@
  * THE SOFTWARE.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -214,6 +215,7 @@ static void dump_args(const mp_obj_t *a, size_t sz) {
     }
 
 #define INIT_CODESTATE(code_state, _fun_bc, _n_state, n_args, n_kw, args) \
+    code_state->instruction_counter = 0; \
     code_state->fun_bc = _fun_bc; \
     code_state->n_state = _n_state; \
     mp_setup_code_state(code_state, n_args, n_kw, args); \
@@ -252,6 +254,7 @@ mp_code_state_t *mp_obj_fun_bc_prepare_codestate(mp_obj_t self_in, size_t n_args
 #endif
 
 static mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+    printf("fun_bc_call\n");
     mp_cstack_check();
 
     DEBUG_printf("Input n_args: " UINT_FMT ", n_kw: " UINT_FMT "\n", n_args, n_kw);
@@ -289,9 +292,20 @@ static mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
 
     INIT_CODESTATE(code_state, self, n_state, n_args, n_kw, args);
 
+    mp_vm_return_kind_t vm_return_kind;
+
     // execute the byte code with the correct globals context
     mp_globals_set(self->context->module.globals);
-    mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, MP_OBJ_NULL);
+    while(1) {
+        code_state->instruction_counter = 11;
+        printf("\n\n\nmp_execute_bytecode %u\n", code_state->instruction_counter);
+        vm_return_kind = mp_execute_bytecode(code_state, MP_OBJ_NULL);
+        if(vm_return_kind == MP_VM_RETURN_SUSPEND) {
+            printf("Call suspended...\n");
+        } else {
+            break;
+        }
+    }
     mp_globals_set(code_state->old_globals);
 
     #if MICROPY_DEBUG_VM_STACK_OVERFLOW

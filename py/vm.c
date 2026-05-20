@@ -219,6 +219,8 @@ MP_NOINLINE static mp_obj_t *build_slice_stack_allocated(byte op, mp_obj_t *sp, 
 //  MP_VM_RETURN_EXCEPTION, exception in state[0]
 mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_code_state_t *code_state, volatile mp_obj_t inject_exc) {
 
+    printf("mp_execute_bytecode\n");
+
 #define SELECTIVE_EXC_IP (0)
 // When disabled, code_state->ip is updated unconditionally during op
 // dispatch, and this is subsequently used in the exception handler
@@ -242,9 +244,21 @@ mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_cod
 #define MARK_EXC_IP_GLOBAL() { code_state->ip = ip; }
 #endif
 
+#define VM_CHECK_AND_SUSPEND() { \
+    printf("-- DISPATCH: counter: %u ip: %d\n", *instruction_counter, *ip); \
+    if(--(*instruction_counter) == 0) { \
+        nlr_pop(); \
+        code_state->obj_shared = obj_shared; \
+        code_state->ip = ip; \
+        code_state->sp = sp; \
+        return MP_VM_RETURN_SUSPEND; \
+    } \
+}
+
 #if MICROPY_OPT_COMPUTED_GOTO
     #include "py/vmentrytable.h"
     #define DISPATCH() do { \
+        VM_CHECK_AND_SUSPEND(); \
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
         TRACE_TICK(ip, sp, false); \
@@ -254,7 +268,10 @@ mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_cod
     #define ENTRY(op) entry_##op
     #define ENTRY_DEFAULT entry_default
 #else
-    #define DISPATCH() goto dispatch_loop
+    #define DISPATCH() do { \
+        VM_CHECK_AND_SUSPEND(); \
+        goto dispatch_loop; \
+    } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
     #define ENTRY(op) case op
     #define ENTRY_DEFAULT default
@@ -294,18 +311,23 @@ FRAME_SETUP();
     volatile int gil_divisor = MICROPY_PY_THREAD_GIL_VM_DIVISOR;
     #endif
 
+
+
+
     // outer exception handling loop
     for (;;) {
         nlr_buf_t nlr;
 outer_dispatch_loop:
+        printf("outer_dispatch_loop:\n");
         if (nlr_push(&nlr) == 0) {
             // local variables that are not visible to the exception handler
             const byte *ip = code_state->ip;
+            uint32_t *instruction_counter = &(code_state->instruction_counter);
             mp_obj_t *sp = code_state->sp;
             #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
             const qstr_short_t *qstr_table = code_state->fun_bc->context->constants.qstr_table;
             #endif
-            mp_obj_t obj_shared;
+            mp_obj_t obj_shared = code_state->obj_shared;
             MICROPY_VM_HOOK_INIT
 
             // If we have exception to inject, now that we finish setting up
@@ -323,6 +345,7 @@ outer_dispatch_loop:
             // loop to execute byte code
             for (;;) {
 dispatch_loop:
+                printf("dispatch_loop:\n");
                 #if MICROPY_OPT_COMPUTED_GOTO
                 DISPATCH();
                 #else
@@ -333,18 +356,22 @@ dispatch_loop:
                 #endif
 
                 ENTRY(MP_BC_LOAD_CONST_FALSE):
+                    printf("op MP_BC_LOAD_CONST_FALSE:\n");
                     PUSH(mp_const_false);
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_CONST_NONE):
+                    printf("op MP_BC_LOAD_CONST_NONE:\n");
                     PUSH(mp_const_none);
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_CONST_TRUE):
+                    printf("op MP_BC_LOAD_CONST_TRUE:\n");
                     PUSH(mp_const_true);
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_CONST_SMALL_INT): {
+                    printf("op MP_BC_LOAD_CONST_SMALL_INT:\n");
                     mp_uint_t num = 0;
                     if ((ip[0] & 0x40) != 0) {
                         // Number is negative
@@ -358,22 +385,26 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_CONST_STRING): {
+                    printf("op MP_BC_LOAD_CONST_STRING:\n");
                     DECODE_QSTR;
                     PUSH(MP_OBJ_NEW_QSTR(qst));
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_LOAD_CONST_OBJ): {
+                    printf("op MP_BC_LOAD_CONST_OBJ:\n");
                     DECODE_OBJ;
                     PUSH(obj);
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_LOAD_NULL):
+                    printf("op MP_BC_LOAD_NULL:\n");
                     PUSH(MP_OBJ_NULL);
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_FAST_N): {
+                    printf("op MP_BC_LOAD_FAST_N:\n");
                     DECODE_UINT;
                     obj_shared = fastn[-unum];
                     load_check:
@@ -389,12 +420,14 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_DEREF): {
+                    printf("op MP_BC_LOAD_DEREF:\n");
                     DECODE_UINT;
                     obj_shared = mp_obj_cell_get(fastn[-unum]);
                     goto load_check;
                 }
 
                 ENTRY(MP_BC_LOAD_NAME): {
+                    printf("op MP_BC_LOAD_NAME:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     PUSH(mp_load_name(qst));
@@ -402,6 +435,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_GLOBAL): {
+                    printf("op MP_BC_LOAD_GLOBAL:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     PUSH(mp_load_global(qst));
@@ -409,6 +443,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_ATTR): {
+                    printf("op MP_BC_LOAD_ATTR:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
@@ -436,6 +471,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_METHOD): {
+                    printf("op MP_BC_LOAD_METHOD:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     mp_load_method(*sp, qst, sp);
@@ -444,6 +480,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_SUPER_METHOD): {
+                    printf("op MP_BC_LOAD_SUPER_METHOD:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     sp -= 1;
@@ -452,11 +489,13 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_LOAD_BUILD_CLASS):
+                    printf("op MP_BC_LOAD_BUILD_CLASS:\n");
                     MARK_EXC_IP_SELECTIVE();
                     PUSH(mp_load_build_class());
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_SUBSCR): {
+                    printf("op MP_BC_LOAD_SUBSCR:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t index = POP();
                     SET_TOP(mp_obj_subscr(TOP(), index, MP_OBJ_SENTINEL));
@@ -464,18 +503,21 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_STORE_FAST_N): {
+                    printf("op MP_BC_STORE_FAST_N:\n");
                     DECODE_UINT;
                     fastn[-unum] = POP();
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_STORE_DEREF): {
+                    printf("op MP_BC_STORE_DEREF:\n");
                     DECODE_UINT;
                     mp_obj_cell_set(fastn[-unum], POP());
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_STORE_NAME): {
+                    printf("op MP_BC_STORE_NAME:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     mp_store_name(qst, POP());
@@ -483,6 +525,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_STORE_GLOBAL): {
+                    printf("op MP_BC_STORE_GLOBAL:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     mp_store_global(qst, POP());
@@ -490,6 +533,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_STORE_ATTR): {
+                    printf("op MP_BC_STORE_ATTR:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
@@ -499,12 +543,14 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_STORE_SUBSCR):
+                    printf("op MP_BC_STORE_SUBSCR:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_subscr(sp[-1], sp[0], sp[-2]);
                     sp -= 3;
                     DISPATCH();
 
                 ENTRY(MP_BC_DELETE_FAST): {
+                    printf("op MP_BC_DELETE_FAST:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     if (fastn[-unum] == MP_OBJ_NULL) {
@@ -515,6 +561,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_DELETE_DEREF): {
+                    printf("op MP_BC_DELETE_DEREF:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     if (mp_obj_cell_get(fastn[-unum]) == MP_OBJ_NULL) {
@@ -525,6 +572,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_DELETE_NAME): {
+                    printf("op MP_BC_DELETE_NAME:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     mp_delete_name(qst);
@@ -532,6 +580,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_DELETE_GLOBAL): {
+                    printf("op MP_BC_DELETE_GLOBAL:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
                     mp_delete_global(qst);
@@ -539,22 +588,26 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_DUP_TOP): {
+                    printf("op MP_BC_DUP_TOP:\n");
                     mp_obj_t top = TOP();
                     PUSH(top);
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_DUP_TOP_TWO):
+                    printf("op MP_BC_DUP_TOP_TWO:\n");
                     sp += 2;
                     sp[0] = sp[-2];
                     sp[-1] = sp[-3];
                     DISPATCH();
 
                 ENTRY(MP_BC_POP_TOP):
+                    printf("op MP_BC_POP_TOP:\n");
                     sp -= 1;
                     DISPATCH();
 
                 ENTRY(MP_BC_ROT_TWO): {
+                    printf("op MP_BC_ROT_TWO:\n");
                     mp_obj_t top = sp[0];
                     sp[0] = sp[-1];
                     sp[-1] = top;
@@ -562,6 +615,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_ROT_THREE): {
+                    printf("op MP_BC_ROT_THREE:\n");
                     mp_obj_t top = sp[0];
                     sp[0] = sp[-1];
                     sp[-1] = sp[-2];
@@ -570,12 +624,14 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_JUMP): {
+                    printf("op MP_BC_JUMP:\n");
                     DECODE_SLABEL;
                     ip += slab;
                     DISPATCH_WITH_PEND_EXC_CHECK();
                 }
 
                 ENTRY(MP_BC_POP_JUMP_IF_TRUE): {
+                    printf("op MP_BC_POP_JUMP_IF_TRUE:\n");
                     DECODE_SLABEL;
                     if (mp_obj_is_true(POP())) {
                         ip += slab;
@@ -584,6 +640,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_POP_JUMP_IF_FALSE): {
+                    printf("op MP_BC_POP_JUMP_IF_FALSE:\n");
                     DECODE_SLABEL;
                     if (!mp_obj_is_true(POP())) {
                         ip += slab;
@@ -592,6 +649,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_JUMP_IF_TRUE_OR_POP): {
+                    printf("op MP_BC_JUMP_IF_TRUE_OR_POP:\n");
                     DECODE_ULABEL;
                     if (mp_obj_is_true(TOP())) {
                         ip += ulab;
@@ -602,6 +660,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_JUMP_IF_FALSE_OR_POP): {
+                    printf("op MP_BC_JUMP_IF_FALSE_OR_POP:\n");
                     DECODE_ULABEL;
                     if (mp_obj_is_true(TOP())) {
                         sp--;
@@ -612,6 +671,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_SETUP_WITH): {
+                    printf("op MP_BC_SETUP_WITH:\n");
                     MARK_EXC_IP_SELECTIVE();
                     // stack: (..., ctx_mgr)
                     mp_obj_t obj = TOP();
@@ -626,6 +686,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_WITH_CLEANUP): {
+                    printf("op MP_BC_WITH_CLEANUP:\n");
                     MARK_EXC_IP_SELECTIVE();
                     // Arriving here, there's "exception control block" on top of stack,
                     // and __exit__ method (with self) underneath it. Bytecode calls __exit__,
@@ -679,6 +740,7 @@ dispatch_loop:
                 }
 
                 ENTRY(MP_BC_UNWIND_JUMP): {
+                    printf("op MP_BC_UNWIND_JUMP:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_SLABEL;
                     PUSH((mp_obj_t)(mp_uint_t)(uintptr_t)(ip + slab)); // push destination ip for jump
@@ -723,6 +785,7 @@ unwind_jump:;
 
                 ENTRY(MP_BC_SETUP_EXCEPT):
                 ENTRY(MP_BC_SETUP_FINALLY): {
+                    printf("op MP_BC_SETUP_EXCEPT / MP_BC_SETUP_FINALLY:\n");
                     MARK_EXC_IP_SELECTIVE();
                     #if SELECTIVE_EXC_IP
                     PUSH_EXC_BLOCK((code_state->ip[-1] == MP_BC_SETUP_FINALLY) ? 1 : 0);
@@ -733,6 +796,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_END_FINALLY):
+                    printf("op MP_BC_END_FINALLY:\n");
                     MARK_EXC_IP_SELECTIVE();
                     // if TOS is None, just pops it and continues
                     // if TOS is an integer, finishes coroutine and returns control to caller
@@ -761,6 +825,7 @@ unwind_jump:;
                     DISPATCH();
 
                 ENTRY(MP_BC_GET_ITER):
+                    printf("op MP_BC_GET_ITER:\n");
                     MARK_EXC_IP_SELECTIVE();
                     SET_TOP(mp_getiter(TOP(), NULL));
                     DISPATCH();
@@ -770,6 +835,7 @@ unwind_jump:;
                 // iterator object itself, or the first slot is MP_OBJ_NULL and
                 // the second slot holds a reference to the iterator object.
                 ENTRY(MP_BC_GET_ITER_STACK): {
+                    printf("op MP_BC_GET_ITER_STACK:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t obj = TOP();
                     mp_obj_iter_buf_t *iter_buf = (mp_obj_iter_buf_t*)sp;
@@ -784,6 +850,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_FOR_ITER): {
+                    printf("op MP_BC_FOR_ITER:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_ULABEL; // the jump offset if iteration finishes; for labels are always forward
@@ -811,6 +878,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_POP_EXCEPT_JUMP): {
+                    printf("op MP_BC_POP_EXCEPT_JUMP:\n");
                     assert(exc_sp >= exc_stack);
                     POP_EXC_BLOCK();
                     DECODE_ULABEL;
@@ -819,6 +887,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_BUILD_TUPLE): {
+                    printf("op MP_BC_BUILD_TUPLE:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     sp -= unum - 1;
@@ -827,6 +896,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_BUILD_LIST): {
+                    printf("op MP_BC_BUILD_LIST:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     sp -= unum - 1;
@@ -835,6 +905,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_BUILD_MAP): {
+                    printf("op MP_BC_BUILD_MAP:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     PUSH(mp_obj_new_dict(unum));
@@ -842,6 +913,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_STORE_MAP):
+                    printf("op MP_BC_STORE_MAP:\n");
                     MARK_EXC_IP_SELECTIVE();
                     sp -= 2;
                     mp_obj_dict_store(sp[0], sp[2], sp[1]);
@@ -849,6 +921,7 @@ unwind_jump:;
 
                 #if MICROPY_PY_BUILTINS_SET
                 ENTRY(MP_BC_BUILD_SET): {
+                    printf("op MP_BC_BUILD_SET:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     sp -= unum - 1;
@@ -859,6 +932,7 @@ unwind_jump:;
 
                 #if MICROPY_PY_BUILTINS_SLICE
                 ENTRY(MP_BC_BUILD_SLICE): {
+                    printf("op MP_BC_BUILD_SLICE:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t step = mp_const_none;
                     if (*ip++ == 3) {
@@ -884,6 +958,7 @@ unwind_jump:;
                 #endif
 
                 ENTRY(MP_BC_STORE_COMP): {
+                    printf("op MP_BC_STORE_COMP:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     mp_obj_t obj = sp[-(unum >> 2)];
@@ -903,6 +978,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_UNPACK_SEQUENCE): {
+                    printf("op MP_BC_UNPACK_SEQUENCE:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     mp_unpack_sequence(sp[0], unum, sp);
@@ -911,6 +987,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_UNPACK_EX): {
+                    printf("op MP_BC_UNPACK_EX:\n");
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
                     mp_unpack_ex(sp[0], unum, sp);
@@ -919,12 +996,14 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_MAKE_FUNCTION): {
+                    printf("op MP_BC_MAKE_FUNCTION:\n");
                     DECODE_PTR;
                     PUSH(mp_make_function_from_proto_fun(ptr, code_state->fun_bc->context, NULL));
                     DISPATCH();
                 }
 
                 ENTRY(MP_BC_MAKE_FUNCTION_DEFARGS): {
+                    printf("op MP_BC_MAKE_FUNCTION_DEFARGS:\n");
                     DECODE_PTR;
                     // Stack layout: def_tuple def_dict <- TOS
                     sp -= 1;
@@ -933,6 +1012,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_MAKE_CLOSURE): {
+                    printf("op MP_BC_MAKE_CLOSURE:\n");
                     DECODE_PTR;
                     size_t n_closed_over = *ip++;
                     // Stack layout: closed_overs <- TOS
@@ -942,6 +1022,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_MAKE_CLOSURE_DEFARGS): {
+                    printf("op MP_BC_MAKE_CLOSURE_DEFARGS:\n");
                     DECODE_PTR;
                     size_t n_closed_over = *ip++;
                     // Stack layout: def_tuple def_dict closed_overs <- TOS
@@ -951,6 +1032,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_CALL_FUNCTION): {
+                    printf("op MP_BC_CALL_FUNCTION:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
@@ -986,6 +1068,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_CALL_FUNCTION_VAR_KW): {
+                    printf("op MP_BC_CALL_FUNCTION_VAR_KW:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
@@ -1032,6 +1115,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_CALL_METHOD): {
+                    printf("op MP_BC_CALL_METHOD:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
@@ -1071,6 +1155,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_CALL_METHOD_VAR_KW): {
+                    printf("op MP_BC_CALL_METHOD_VAR_KW:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_UINT;
@@ -1117,6 +1202,7 @@ unwind_jump:;
                 }
 
                 ENTRY(MP_BC_RETURN_VALUE):
+                    printf("op MP_BC_RETURN_VALUE:\n");
                     MARK_EXC_IP_SELECTIVE();
 unwind_return:
                     // Search for and execute finally handlers that aren't already active
@@ -1175,6 +1261,7 @@ unwind_return:
                     return MP_VM_RETURN_NORMAL;
 
                 ENTRY(MP_BC_RAISE_LAST): {
+                    printf("op MP_BC_RAISE_LAST:\n");
                     MARK_EXC_IP_SELECTIVE();
                     // search for the inner-most previous exception, to reraise it
                     mp_obj_t obj = MP_OBJ_NULL;
@@ -1191,12 +1278,14 @@ unwind_return:
                 }
 
                 ENTRY(MP_BC_RAISE_OBJ): {
+                    printf("op MP_BC_RAISE_OBJ:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t obj = mp_make_raise_obj(TOP());
                     RAISE(obj);
                 }
 
                 ENTRY(MP_BC_RAISE_FROM): {
+                    printf("op MP_BC_RAISE_FROM:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t from_value = POP();
                     if (from_value != mp_const_none) {
@@ -1207,15 +1296,18 @@ unwind_return:
                 }
 
                 ENTRY(MP_BC_YIELD_VALUE):
+                    printf("op MP_BC_YIELD_VALUE:\n");
 yield:
+                    printf("yield:\n");
                     nlr_pop();
                     code_state->ip = ip;
                     code_state->sp = sp;
                     code_state->exc_sp_idx = MP_CODE_STATE_EXC_SP_IDX_FROM_PTR(exc_stack, exc_sp);
                     FRAME_LEAVE();
-                    return MP_VM_RETURN_YIELD;
+                    return MP_VM_RETURN_YIELD;  
 
                 ENTRY(MP_BC_YIELD_FROM): {
+                    printf("op MP_BC_YIELD_FROM:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_vm_return_kind_t ret_kind;
                     mp_obj_t send_value = POP();
@@ -1255,6 +1347,7 @@ yield:
                 }
 
                 ENTRY(MP_BC_IMPORT_NAME): {
+                    printf("op MP_BC_IMPORT_NAME:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
@@ -1264,6 +1357,7 @@ yield:
                 }
 
                 ENTRY(MP_BC_IMPORT_FROM): {
+                    printf("op MP_BC_IMPORT_FROM:\n");
                     FRAME_UPDATE();
                     MARK_EXC_IP_SELECTIVE();
                     DECODE_QSTR;
@@ -1273,29 +1367,35 @@ yield:
                 }
 
                 ENTRY(MP_BC_IMPORT_STAR):
+                    printf("op MP_BC_IMPORT_STAR:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_import_all(POP());
                     DISPATCH();
 
                 #if MICROPY_OPT_COMPUTED_GOTO
                 ENTRY(MP_BC_LOAD_CONST_SMALL_INT_MULTI):
+                    printf("op MP_BC_LOAD_CONST_SMALL_INT_MULTI:\n");
                     PUSH(MP_OBJ_NEW_SMALL_INT((mp_int_t)ip[-1] - MP_BC_LOAD_CONST_SMALL_INT_MULTI - MP_BC_LOAD_CONST_SMALL_INT_MULTI_EXCESS));
                     DISPATCH();
 
                 ENTRY(MP_BC_LOAD_FAST_MULTI):
+                    printf("op MP_BC_LOAD_FAST_MULTI:\n");
                     obj_shared = fastn[MP_BC_LOAD_FAST_MULTI - (mp_int_t)ip[-1]];
                     goto load_check;
 
                 ENTRY(MP_BC_STORE_FAST_MULTI):
+                    printf("op MP_BC_STORE_FAST_MULTI:\n");
                     fastn[MP_BC_STORE_FAST_MULTI - (mp_int_t)ip[-1]] = POP();
                     DISPATCH();
 
                 ENTRY(MP_BC_UNARY_OP_MULTI):
+                    printf("op MP_BC_UNARY_OP_MULTI:\n");
                     MARK_EXC_IP_SELECTIVE();
                     SET_TOP(mp_unary_op(ip[-1] - MP_BC_UNARY_OP_MULTI, TOP()));
                     DISPATCH();
 
                 ENTRY(MP_BC_BINARY_OP_MULTI): {
+                    printf("op MP_BC_BINARY_OP_MULTI:\n");
                     MARK_EXC_IP_SELECTIVE();
                     mp_obj_t rhs = POP();
                     mp_obj_t lhs = TOP();
@@ -1304,9 +1404,11 @@ yield:
                 }
 
                 ENTRY_DEFAULT:
+                    printf("-  ENTRY_DEFAULT:\n");
                     MARK_EXC_IP_SELECTIVE();
                 #else
                 ENTRY_DEFAULT:
+                    printf("-  ENTRY_DEFAULT:\n");
                     if (ip[-1] < MP_BC_LOAD_CONST_SMALL_INT_MULTI + MP_BC_LOAD_CONST_SMALL_INT_MULTI_NUM) {
                         PUSH(MP_OBJ_NEW_SMALL_INT((mp_int_t)ip[-1] - MP_BC_LOAD_CONST_SMALL_INT_MULTI - MP_BC_LOAD_CONST_SMALL_INT_MULTI_EXCESS));
                         DISPATCH();
@@ -1331,6 +1433,7 @@ yield:
                     nlr_pop();
                     code_state->state[0] = obj;
                     FRAME_LEAVE();
+                    printf("ret MP_VM_RETURN_EXCEPTION:\n");
                     return MP_VM_RETURN_EXCEPTION;
                 }
 

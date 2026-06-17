@@ -119,6 +119,20 @@
 #define MICROPY_OPT_COMPUTED_GOTO               (1)
 #define MICROPY_GC_NO_SCAN                      (1)
 
+// Place the bytecode interpreter dispatch loop and its hottest leaf functions
+// into SRAM. This trades ~6KB of RAM for a ~20% interpreter speed-up.
+#ifndef MICROPY_HW_VM_IN_RAM
+#define MICROPY_HW_VM_IN_RAM                    (0)
+#endif
+#if MICROPY_HW_VM_IN_RAM
+#define MICROPY_WRAP_MP_EXECUTE_BYTECODE(f)     __not_in_flash_func(f)
+#define MICROPY_WRAP_MP_BINARY_OP(f)            __not_in_flash_func(f)
+#define MICROPY_WRAP_MP_LOAD_GLOBAL(f)          __not_in_flash_func(f)
+#define MICROPY_WRAP_MP_LOAD_NAME(f)            __not_in_flash_func(f)
+#define MICROPY_WRAP_MP_MAP_LOOKUP(f)           __not_in_flash_func(f)
+#define MICROPY_WRAP_MP_OBJ_GET_TYPE(f)         __not_in_flash_func(f)
+#endif
+
 // Python internal features
 #define MICROPY_TRACKED_ALLOC                   (MICROPY_SSL_MBEDTLS || MICROPY_BLUETOOTH_BTSTACK)
 #define MICROPY_READER_VFS                      (1)

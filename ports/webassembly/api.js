@@ -88,14 +88,14 @@ export async function loadMicroPython(options) {
     Module = await _createMicroPythonModule(Module);
     globalThis.Module = Module;
     proxy_js_init();
-    const pyimport = (name) => {
+    const pyimport = async (name) => {
         const value = Module._malloc(3 * 4);
-        Module.ccall(
-            "mp_js_do_import",
-            "null",
-            ["string", "pointer"],
-            [name, value],
-        );
+        const _name = Module.stringToNewUTF8(name);
+        try {
+            await Module._mp_js_do_import(_name, value);
+        } finally {
+            Module._free(_name);
+        }
         return proxy_convert_mp_to_js_obj_jsside_with_free(value);
     };
     Module.ccall(
@@ -133,32 +133,35 @@ export async function loadMicroPython(options) {
             Module._free(value);
         },
         pyimport: pyimport,
-        runPython(code) {
+        async runPython(code) {
             const len = Module.lengthBytesUTF8(code);
             const buf = Module._malloc(len + 1);
             Module.stringToUTF8(code, buf, len + 1);
             const value = Module._malloc(3 * 4);
-            Module.ccall(
-                "mp_js_do_exec",
-                "number",
-                ["pointer", "number", "pointer"],
-                [buf, len, value],
-            );
-            Module._free(buf);
+            
+            try {
+                // Direct invocation on the native JSPI promise stack
+                await Module._mp_js_do_exec(buf, len, value);
+            } finally {
+                // Ensures memory is freed even if MicroPython throws an execution error
+                Module._free(buf);
+            }
+
             return proxy_convert_mp_to_js_obj_jsside_with_free(value);
         },
-        runPythonAsync(code) {
+        async runPythonAsync(code) {
             const len = Module.lengthBytesUTF8(code);
             const buf = Module._malloc(len + 1);
             Module.stringToUTF8(code, buf, len + 1);
             const value = Module._malloc(3 * 4);
-            Module.ccall(
-                "mp_js_do_exec_async",
-                "number",
-                ["pointer", "number", "pointer"],
-                [buf, len, value],
-            );
-            Module._free(buf);
+            
+            try {
+                // Direct invocation on the native JSPI promise stack
+                await Module._mp_js_do_exec_async(buf, len, value);
+            } finally {
+                Module._free(buf);
+            }
+
             const ret = proxy_convert_mp_to_js_obj_jsside_with_free(value);
             if (ret instanceof PyProxyThenable) {
                 return Promise.resolve(ret);

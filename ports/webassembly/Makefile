@@ -45,16 +45,19 @@ INC += -I.
 INC += -I$(TOP)
 INC += -I$(BUILD)
 INC += -I$(VARIANT_DIR)
-INC += -I$(TOP)/ports/webassembly/pngdec
+INC += -I$(TOP)/ports/webassembly/picovector/lib/pngdec
+INC += -I$(TOP)/ports/webassembly/picovector/lib/jpegdec
 
-CXXFLAGS = $(CFLAGS) -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1
+CXXFLAGS = $(CFLAGS) -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1 -fwasm-exceptions
 
 CFLAGS += -std=gnu99 -Wall -Werror -Wdouble-promotion -Wfloat-conversion -Wno-deprecated-non-prototype -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1
-CFLAGS += -Os -DNDEBUG
+CFLAGS += -O2 -DNDEBUG -fwasm-exceptions
+CFLAGS += -gsource-map
 CFLAGS += $(INC)
 
-LDFLAGS += -specs=nano.specs
+LDFLAGS += -specs=nano.specs -fwasm-exceptions
 CXXFLAGS += $(INC) -std=c++17 -Wno-error -fms-extensions -fno-exceptions -fno-unwind-tables -fno-rtti -fno-use-cxa-atexit
+CXXFLAGS += -DPV_DUAL_CORE=0 -DPV_PROFILE=0 -DTUFTY=1
 
 EXPORTED_FUNCTIONS_EXTRA += ,\
 	_mp_js_do_exec,\
@@ -80,6 +83,7 @@ EXPORTED_FUNCTIONS_EXTRA += ,\
 EXPORTED_RUNTIME_METHODS_EXTRA += ,\
 	PATH,\
 	PATH_FS,\
+	stringToNewUTF8,\
 	UTF8ToString,\
 	getValue,\
 	lengthBytesUTF8,\
@@ -100,8 +104,16 @@ JSFLAGS += -s EXPORTED_RUNTIME_METHODS="\
 	cwrap,\
 	FS$(EXPORTED_RUNTIME_METHODS_EXTRA)"
 JSFLAGS += --js-library library.js
-JSFLAGS += -s SUPPORT_LONGJMP=emscripten
+JSFLAGS += -s SUPPORT_LONGJMP=wasm
 JSFLAGS += -s MODULARIZE -s EXPORT_NAME=_createMicroPythonModule
+JSFLAGS += -s ASYNCIFY=0
+JSFLAGS += -s JSPI=1
+JSFLAGS += -s JSPI_EXPORTS=["mp_js_do_exec","mp_js_do_exec_async","mp_js_do_import"]
+JSFLAGS += -s ALLOW_TABLE_GROWTH=1
+JSFLAGS += -s WASM_BIGINT=1
+#JSFLAGS += -s ASYNCIFY_STACK_SIZE=131072
+#JSFLAGS += -s STACK_SIZE=65536 -s ALLOW_MEMORY_GROWTH=1
+#JSFLAGS += -s ASYNCIFY_ONLY=['mp_module_simulator_update']
 
 ################################################################################
 # Source files and libraries.
@@ -124,13 +136,13 @@ SRC_C += \
 	proxy_c.c \
 	modframebufcp.c \
 	picovector/micropython/picovector_bindings.c \
-    pngdec/adler32.c \
-    pngdec/crc32.c \
-    pngdec/infback.c \
-    pngdec/inffast.c \
-    pngdec/inflate.c \
-    pngdec/inftrees.c \
-    pngdec/zutil.c
+    picovector/lib/pngdec/adler32.c \
+    picovector/lib/pngdec/crc32.c \
+    picovector/lib/pngdec/infback.c \
+    picovector/lib/pngdec/inffast.c \
+    picovector/lib/pngdec/inflate.c \
+    picovector/lib/pngdec/inftrees.c \
+    picovector/lib/pngdec/zutil.c
 
 SRC_CXX = \
 	picovector/micropython/picovector.cpp \
@@ -147,23 +159,29 @@ SRC_CXX = \
 	picovector/brushes/pattern.cpp \
 	picovector/brushes/color.cpp \
 	picovector/brushes/image.cpp \
+	picovector/brushes/gradient.cpp \
+	picovector/brushes/pixelate.cpp \
+	picovector/brushes/blur.cpp \
+	picovector/brushes/brightness.cpp \
 	picovector/filters/blur.cpp \
 	picovector/filters/dither.cpp \
-	picovector/filters/onebit.cpp \
 	picovector/filters/monochrome.cpp \
+	picovector/filters/onebit.cpp \
 	picovector/micropython/brush.cpp \
 	picovector/micropython/color.cpp \
 	picovector/micropython/font.cpp \
+	picovector/micropython/image_jpeg.cpp \
 	picovector/micropython/image_png.cpp \
 	picovector/micropython/image.cpp \
-	picovector/micropython/input.cpp \
 	picovector/micropython/mat3.cpp \
 	picovector/micropython/pixel_font.cpp \
 	picovector/micropython/shape.cpp \
 	picovector/micropython/rect.cpp \
 	picovector/micropython/vec2.cpp \
 	picovector/micropython/algorithm.cpp \
-	pngdec/PNGdec.cpp
+	picovector-old/micropython/input.cpp \
+	picovector/lib/pngdec/PNGdec.cpp \
+	picovector/lib/jpegdec/JPEGdec.cpp
 
 # List of sources for qstr extraction.
 SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SRC_SHARED)

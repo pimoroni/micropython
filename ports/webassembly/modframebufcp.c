@@ -17,6 +17,7 @@ static mp_obj_t mp_module_simulator_update(mp_obj_t fullres) {
             WorkerGlobalScope.worker.flip_lores(data);
         }, (uint8_t *)framebuffer);
     }
+    emscripten_sleep(6);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mp_module_simulator_update_obj, mp_module_simulator_update);

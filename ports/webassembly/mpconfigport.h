@@ -116,8 +116,13 @@
 
 typedef long mp_off_t;
 
+// Allow a variant (e.g. pyscript) to override the board / MCU name.
+#ifndef MICROPY_HW_BOARD_NAME
 #define MICROPY_HW_BOARD_NAME "JS"
+#endif
+#ifndef MICROPY_HW_MCU_NAME
 #define MICROPY_HW_MCU_NAME "Emscripten"
+#endif
 
 #define MP_STATE_PORT MP_STATE_VM
 

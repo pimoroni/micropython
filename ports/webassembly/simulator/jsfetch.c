@@ -1,8 +1,8 @@
 // _jsfetch: a blocking HTTP primitive for the simulator, backed by the
 // browser's fetch() (see simulator/jsfetch.js). A browser can't open raw
 // sockets, so the socket-based `requests` / `urllib.urequest` from
-// micropython-lib don't work here; the frozen shims in simulator/net/ call this
-// instead.
+// micropython-lib don't work here; the frozen shims in simulator/modules/ call
+// this instead.
 //
 // request() kicks off the fetch then suspends the WASM stack (JSPI, via
 // emscripten_sleep) until it settles, giving Python an ordinary blocking call.

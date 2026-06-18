@@ -253,6 +253,18 @@ extern "C" {
   MPY_BIND_ATTR(board, {
     (void)self_in;
     if(dest[0] == MP_OBJ_NULL) { // load
+      // Pin.board.__dict__ -> {name: Pin} for all named pins, so code that
+      // enumerates the board (e.g. the firmware `board` module) works.
+      if(attr == MP_QSTR___dict__) {
+        mp_obj_t dict = mp_obj_new_dict(MP_ARRAY_SIZE(board_pins));
+        for(size_t i = 0; i < MP_ARRAY_SIZE(board_pins); i++) {
+          mp_obj_dict_store(dict,
+            mp_obj_new_str(board_pins[i].name, strlen(board_pins[i].name)),
+            machine_make_pin(board_pins[i].id));
+        }
+        dest[0] = dict;
+        return;
+      }
       int id = board_pin_id(qstr_str(attr));
       if(id >= 0) {
         dest[0] = machine_make_pin(id);

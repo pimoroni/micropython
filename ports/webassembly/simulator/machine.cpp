@@ -78,7 +78,19 @@ extern "C" {
       return;
     }
     if (now - simulator_last_yield_ms >= SIMULATOR_YIELD_INTERVAL_MS) {
-      simulator_last_yield_ms = now;
+      // While the host has paused execution (e.g. the simulator was scrolled
+      // out of view), block here and keep giving the event loop turns so we
+      // make no progress yet still receive the resume message. Gated on
+      // `running` so import and program setup (which happen before the run loop)
+      // are never paused. This halts even a self-looping script, since it is
+      // reached from the VM hook.
+      while (EM_ASM_INT({
+        var w = (typeof WorkerGlobalScope !== 'undefined') ? WorkerGlobalScope.worker : null;
+        return (w && w.running && w.paused) ? 1 : 0;
+      })) {
+        emscripten_sleep(50);
+      }
+      simulator_last_yield_ms = emscripten_get_now();
       emscripten_sleep(0);
     }
 #endif

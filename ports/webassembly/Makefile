@@ -104,6 +104,7 @@ JSFLAGS += -s EXPORTED_RUNTIME_METHODS="\
 	cwrap,\
 	FS$(EXPORTED_RUNTIME_METHODS_EXTRA)"
 JSFLAGS += --js-library library.js
+JSFLAGS += --js-library simulator/jsfetch.js
 JSFLAGS += -s SUPPORT_LONGJMP=wasm
 JSFLAGS += -s MODULARIZE -s EXPORT_NAME=_createMicroPythonModule
 JSFLAGS += -s ASYNCIFY=0
@@ -135,6 +136,7 @@ SRC_C += \
 	objjsproxy.c \
 	proxy_c.c \
 	simulator/st7789.c \
+	simulator/jsfetch.c \
 	picovector/micropython/picovector_bindings.c \
     picovector/lib/pngdec/adler32.c \
     picovector/lib/pngdec/crc32.c \

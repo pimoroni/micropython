@@ -134,7 +134,7 @@ SRC_C += \
 	mphalport.c \
 	objjsproxy.c \
 	proxy_c.c \
-	modframebufcp.c \
+	simulator/st7789.c \
 	picovector/micropython/picovector_bindings.c \
     picovector/lib/pngdec/adler32.c \
     picovector/lib/pngdec/crc32.c \
@@ -179,7 +179,8 @@ SRC_CXX = \
 	picovector/micropython/rect.cpp \
 	picovector/micropython/vec2.cpp \
 	picovector/micropython/algorithm.cpp \
-	picovector-old/micropython/input.cpp \
+	simulator/machine.cpp \
+	simulator/input.cpp \
 	picovector/lib/pngdec/PNGdec.cpp \
 	picovector/lib/jpegdec/JPEGdec.cpp
 

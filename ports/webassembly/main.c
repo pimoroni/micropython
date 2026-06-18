@@ -60,6 +60,14 @@ void external_call_depth_inc(void) {
     ++external_call_depth;
 }
 
+// Non-zero only while executing inside one of the JSPI-suspendable entry points
+// (mp_js_do_exec / _async / _import) or a proxied call reached from one. Used by
+// the simulator's cooperative yield to know when it is safe to suspend the WASM
+// stack via emscripten_sleep().
+size_t external_call_depth_get(void) {
+    return external_call_depth;
+}
+
 void external_call_depth_dec(void) {
     --external_call_depth;
     #if MICROPY_GC_SPLIT_HEAP_AUTO

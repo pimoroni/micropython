@@ -28,6 +28,14 @@
 #include "py/mphal.h"
 #include "library.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+// Defined in main.c / simulator/machine.cpp.
+extern size_t external_call_depth_get(void);
+extern void mp_simulator_mark_yield(void);
+
 static void stderr_print_strn(void *env, const char *str, size_t len) {
     (void)env;
     write(2, str, len);
@@ -40,6 +48,17 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, size_t len) {
 }
 
 void mp_hal_delay_ms(mp_uint_t ms) {
+#ifdef __EMSCRIPTEN__
+    // When it's safe to suspend the WASM stack (i.e. inside an exec), sleep via
+    // the event loop instead of busy-spinning. This keeps the worker responsive
+    // for the whole delay (input received, output flushed) and doesn't peg the
+    // CPU. Otherwise fall back to a busy wait.
+    if (external_call_depth_get() > 0) {
+        emscripten_sleep(ms);
+        mp_simulator_mark_yield();
+        return;
+    }
+#endif
     uint32_t start = mp_hal_ticks_ms();
     while (mp_hal_ticks_ms() - start < ms) {
     }

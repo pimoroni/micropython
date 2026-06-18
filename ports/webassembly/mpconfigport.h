@@ -80,7 +80,25 @@
 #define MICROPY_VARIANT_ENABLE_JS_HOOK (0)
 #endif
 
-#if MICROPY_VARIANT_ENABLE_JS_HOOK
+// Whether the VM will periodically call mp_simulator_yield(), which hands the
+// single-threaded worker's event loop a turn so host->worker messages (button
+// input) are received and worker->host messages (stdout, caselights) flushed,
+// even inside scripts that never call badge.update(). See simulator/machine.cpp.
+#ifndef MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK
+#define MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK (0)
+#endif
+
+#if MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK
+#define MICROPY_VM_HOOK_COUNT (30)
+#define MICROPY_VM_HOOK_INIT static uint16_t vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
+#define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \
+        vm_hook_divisor = MICROPY_VM_HOOK_COUNT; \
+        extern void mp_simulator_yield(void); \
+        mp_simulator_yield(); \
+}
+#define MICROPY_VM_HOOK_LOOP MICROPY_VM_HOOK_POLL
+#define MICROPY_VM_HOOK_RETURN MICROPY_VM_HOOK_POLL
+#elif MICROPY_VARIANT_ENABLE_JS_HOOK
 #define MICROPY_VM_HOOK_COUNT (10)
 #define MICROPY_VM_HOOK_INIT static uint vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
 #define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \

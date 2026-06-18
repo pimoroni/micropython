@@ -46,6 +46,7 @@ extern const mp_obj_type_t mp_type_JsException;
 
 void external_call_depth_inc(void);
 void external_call_depth_dec(void);
+size_t external_call_depth_get(void);
 
 void proxy_c_init(void);
 mp_obj_t proxy_convert_js_to_mp_obj_cside(uint32_t *value);

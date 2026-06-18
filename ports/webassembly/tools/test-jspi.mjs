@@ -49,5 +49,27 @@ setTimeout(() => { if (firedAt < 0) firedAt = Date.now() - start2; }, 80);
 await mp.runPythonAsync("import time\ntime.sleep(0.5)");
 ok(`time.sleep yields (timer fired @${firedAt}ms)`, firedAt >= 0 && firedAt < 300);
 
+// _jsfetch (enabled in this variant via jsfetch/jsfetch.mk): a blocking GET to
+// a throwaway local server, suspending via the event loop until it completes.
+const http = await import("node:http");
+const server = http.createServer((req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ hello: "world" }));
+});
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const base = `http://127.0.0.1:${server.address().port}`;
+try {
+  await mp.runPythonAsync(`
+import _jsfetch
+status, reason, headers, body = _jsfetch.request("GET", "${base}/", "", None)
+assert status == 200, status
+assert b'"hello"' in body, body
+`);
+  ok("_jsfetch.request (blocking GET)", true);
+} catch (e) {
+  ok("_jsfetch.request (blocking GET)", false, (e.message || String(e)).split("\n").pop());
+}
+server.close();
+
 console.log(`\n${fail === 0 ? "PASS" : "FAIL"}: ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

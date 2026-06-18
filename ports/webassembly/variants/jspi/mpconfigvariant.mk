@@ -27,3 +27,6 @@ JSFLAGS += -s ALLOW_MEMORY_GROWTH
 
 # Tell api.js to use the JSPI (direct promising call) invocation path.
 SRC_JS += async_jspi.js
+
+# Fetch-backed HTTP primitive (works because this is a suspend-capable build).
+include jsfetch/jsfetch.mk

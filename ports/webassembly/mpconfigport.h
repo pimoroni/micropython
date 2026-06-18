@@ -88,6 +88,12 @@
 #define MICROPY_ENABLE_VM_YIELD (0)
 #endif
 
+// _jsfetch: a fetch-backed HTTP primitive (see jsfetch/). Enabled by variants
+// that include jsfetch/jsfetch.mk; needs a suspend-capable (JSPI/Asyncify) build.
+#ifndef MICROPY_PY_JSFETCH
+#define MICROPY_PY_JSFETCH (0)
+#endif
+
 #if MICROPY_ENABLE_VM_YIELD
 #define MICROPY_VM_HOOK_COUNT (30)
 #define MICROPY_VM_HOOK_INIT static uint16_t vm_hook_divisor = MICROPY_VM_HOOK_COUNT;

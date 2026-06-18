@@ -80,7 +80,25 @@
 #define MICROPY_VARIANT_ENABLE_JS_HOOK (0)
 #endif
 
-#if MICROPY_VARIANT_ENABLE_JS_HOOK
+// Whether JSPI builds drive a cooperative yield from the VM (and mp_hal_delay_ms),
+// handing the JS event loop a turn periodically so the page stays responsive
+// during long-running or self-looping Python. Implemented by mp_js_yield() in
+// main.c; enable it in variants that build with -sJSPI.
+#ifndef MICROPY_ENABLE_VM_YIELD
+#define MICROPY_ENABLE_VM_YIELD (0)
+#endif
+
+#if MICROPY_ENABLE_VM_YIELD
+#define MICROPY_VM_HOOK_COUNT (30)
+#define MICROPY_VM_HOOK_INIT static uint16_t vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
+#define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \
+        vm_hook_divisor = MICROPY_VM_HOOK_COUNT; \
+        extern void mp_js_yield(void); \
+        mp_js_yield(); \
+}
+#define MICROPY_VM_HOOK_LOOP MICROPY_VM_HOOK_POLL
+#define MICROPY_VM_HOOK_RETURN MICROPY_VM_HOOK_POLL
+#elif MICROPY_VARIANT_ENABLE_JS_HOOK
 #define MICROPY_VM_HOOK_COUNT (10)
 #define MICROPY_VM_HOOK_INIT static uint vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
 #define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \
@@ -98,8 +116,13 @@
 
 typedef long mp_off_t;
 
+// Allow a variant (e.g. pyscript) to override the board / MCU name.
+#ifndef MICROPY_HW_BOARD_NAME
 #define MICROPY_HW_BOARD_NAME "JS"
+#endif
+#ifndef MICROPY_HW_MCU_NAME
 #define MICROPY_HW_MCU_NAME "Emscripten"
+#endif
 
 #define MP_STATE_PORT MP_STATE_VM
 

@@ -45,7 +45,12 @@ INC += -I$(TOP)
 INC += -I$(BUILD)
 INC += -I$(VARIANT_DIR)
 
-CFLAGS += -std=c99 -Wall -Werror -Wdouble-promotion -Wfloat-conversion
+# Overridable by variants. The badgeware variants build with -std=gnu99 (EM_ASM
+# requires a GNU mode) and SUPPORT_LONGJMP=wasm (they use -fwasm-exceptions).
+CSTD ?= c99
+SUPPORT_LONGJMP ?= emscripten
+
+CFLAGS += -std=$(CSTD) -Wall -Werror -Wdouble-promotion -Wfloat-conversion
 CFLAGS += -Os -DNDEBUG
 CFLAGS += $(INC)
 
@@ -71,6 +76,7 @@ EXPORTED_FUNCTIONS_EXTRA += ,\
 	_proxy_convert_mp_to_js_obj_cside
 
 EXPORTED_RUNTIME_METHODS_EXTRA += ,\
+	HEAPU8,\
 	PATH,\
 	PATH_FS,\
 	UTF8ToString,\
@@ -92,7 +98,7 @@ JSFLAGS += -s EXPORTED_RUNTIME_METHODS="\
 	cwrap,\
 	FS$(EXPORTED_RUNTIME_METHODS_EXTRA)"
 JSFLAGS += --js-library library.js
-JSFLAGS += -s SUPPORT_LONGJMP=emscripten
+JSFLAGS += -s SUPPORT_LONGJMP=$(SUPPORT_LONGJMP)
 JSFLAGS += -s MODULARIZE -s EXPORT_NAME=_createMicroPythonModule
 
 ################################################################################
@@ -113,10 +119,13 @@ SRC_C += \
 	modjsffi.c \
 	mphalport.c \
 	objjsproxy.c \
-	proxy_c.c \
+	proxy_c.c
+
+# Badgeware variants add the picovector library and the simulator C/C++ modules
+# to SRC_C / SRC_CXX via variants/badgeware.mk.
 
 # List of sources for qstr extraction.
-SRC_QSTR += $(SRC_C) $(SRC_SHARED)
+SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SRC_SHARED)
 
 SRC_JS += \
 	api.js \
@@ -126,6 +135,7 @@ SRC_JS += \
 OBJ += $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_SHARED:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
+OBJ += $(addprefix $(BUILD)/, $(SRC_CXX:.cpp=.o))
 
 ################################################################################
 # Main targets.

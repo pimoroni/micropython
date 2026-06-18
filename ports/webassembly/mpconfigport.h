@@ -80,21 +80,21 @@
 #define MICROPY_VARIANT_ENABLE_JS_HOOK (0)
 #endif
 
-// Whether the VM will periodically call mp_simulator_yield(), which hands the
-// single-threaded worker's event loop a turn so host->worker messages (button
-// input) are received and worker->host messages (stdout, caselights) flushed,
-// even inside scripts that never call badge.update(). See simulator/machine.cpp.
-#ifndef MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK
-#define MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK (0)
+// Whether JSPI builds drive a cooperative yield from the VM (and mp_hal_delay_ms),
+// handing the JS event loop a turn periodically so the page stays responsive
+// during long-running or self-looping Python. Implemented by mp_js_yield() in
+// main.c; enable it in variants that build with -sJSPI.
+#ifndef MICROPY_ENABLE_VM_YIELD
+#define MICROPY_ENABLE_VM_YIELD (0)
 #endif
 
-#if MICROPY_VARIANT_ENABLE_SIMULATOR_HOOK
+#if MICROPY_ENABLE_VM_YIELD
 #define MICROPY_VM_HOOK_COUNT (30)
 #define MICROPY_VM_HOOK_INIT static uint16_t vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
 #define MICROPY_VM_HOOK_POLL if (--vm_hook_divisor == 0) { \
         vm_hook_divisor = MICROPY_VM_HOOK_COUNT; \
-        extern void mp_simulator_yield(void); \
-        mp_simulator_yield(); \
+        extern void mp_js_yield(void); \
+        mp_js_yield(); \
 }
 #define MICROPY_VM_HOOK_LOOP MICROPY_VM_HOOK_POLL
 #define MICROPY_VM_HOOK_RETURN MICROPY_VM_HOOK_POLL

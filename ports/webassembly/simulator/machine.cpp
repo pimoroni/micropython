@@ -37,61 +37,20 @@ extern "C" {
   #include "py/runtime.h"
   #include "py/objstr.h"
 
-  // Defined in main.c: non-zero while inside a JSPI-suspendable entry point.
-  extern size_t external_call_depth_get(void);
-
-  // ----------------------------------------------------- cooperative yield
-  // The worker runs MicroPython on a single thread, so inbound messages (button
-  // states posted from the host) are only delivered, and outbound postMessages
-  // only flushed, when the WASM stack yields to the JS event loop. Scripts that
-  // never call badge.update() (e.g. a bare `while True:`) would otherwise never
-  // see input change. mp_simulator_yield() is driven from the VM hook (see
-  // mpconfigport.h) and from mp_hal_delay_ms(), so it runs for all Python code
-  // without the script having to cooperate.
-  //
-  // Yields are throttled to roughly one frame so compute-bound code isn't
-  // crippled, and only happen while it is safe to suspend the stack (i.e. inside
-  // mp_js_do_exec and friends). emscripten_sleep(0) gives the event loop a turn,
-  // during which queued onmessage handlers run before we resume.
-  #ifndef SIMULATOR_YIELD_INTERVAL_MS
-  #define SIMULATOR_YIELD_INTERVAL_MS (16.0)
-  #endif
-
-  static double simulator_last_yield_ms = -1.0;
-
-  // Record that a yield has just happened (e.g. a display flip already gave the
-  // event loop a turn) so the throttle doesn't fire a redundant extra yield.
-  void mp_simulator_mark_yield(void) {
+  // ------------------------------------------------------- JSPI yield hook
+  // The generic cooperative yield lives in main.c (mp_js_yield); it calls this
+  // hook at each yield point. The simulator uses it to honour the host's pause:
+  // while execution is paused (e.g. the simulator was scrolled out of view) we
+  // block here, still giving the event loop turns so we receive the resume.
+  // Gated on `running` so import and program setup (before the run loop) aren't
+  // paused. Since it's reached from the VM hook, even a self-looping script halts.
+  void mp_js_yield_hook(void) {
 #ifdef __EMSCRIPTEN__
-    simulator_last_yield_ms = emscripten_get_now();
-#endif
-  }
-
-  void mp_simulator_yield(void) {
-#ifdef __EMSCRIPTEN__
-    if (external_call_depth_get() == 0) {
-      return;  // not inside a suspendable call; unsafe to emscripten_sleep()
-    }
-    double now = emscripten_get_now();
-    if (simulator_last_yield_ms < 0.0) {
-      simulator_last_yield_ms = now;  // prime the throttle without yielding
-      return;
-    }
-    if (now - simulator_last_yield_ms >= SIMULATOR_YIELD_INTERVAL_MS) {
-      // While the host has paused execution (e.g. the simulator was scrolled
-      // out of view), block here and keep giving the event loop turns so we
-      // make no progress yet still receive the resume message. Gated on
-      // `running` so import and program setup (which happen before the run loop)
-      // are never paused. This halts even a self-looping script, since it is
-      // reached from the VM hook.
-      while (EM_ASM_INT({
-        var w = (typeof WorkerGlobalScope !== 'undefined') ? WorkerGlobalScope.worker : null;
-        return (w && w.running && w.paused) ? 1 : 0;
-      })) {
-        emscripten_sleep(50);
-      }
-      simulator_last_yield_ms = emscripten_get_now();
-      emscripten_sleep(0);
+    while (EM_ASM_INT({
+      var w = (typeof WorkerGlobalScope !== 'undefined') ? WorkerGlobalScope.worker : null;
+      return (w && w.running && w.paused) ? 1 : 0;
+    })) {
+      emscripten_sleep(50);
     }
 #endif
   }

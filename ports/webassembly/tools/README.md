@@ -4,15 +4,21 @@ Helpers for the badgeware webassembly MicroPython port.
 
 ## build.sh
 
-Builds the port (defaults to `VARIANT=pyscript`) and deploys
+Builds the port (defaults to `VARIANT=badgeware-tufty2350`) and deploys
 `micropython.mjs` / `micropython.wasm` into `web/badgeware-web/simulator/`.
 
 ```sh
 tools/build.sh              # build + deploy
 tools/build.sh --clean      # make clean, then build + deploy
 tools/build.sh --no-deploy  # build only
-VARIANT=standard tools/build.sh
+VARIANT=pyscript tools/build.sh
 ```
+
+The badgeware-specific build (picovector + the simulator C modules) lives in the
+`badgeware-tufty2350` variant: `variants/badgeware-tufty2350/` plus the shared
+`variants/badgeware.mk` and `variants/badgeware_manifest.py` (so future
+`badgeware-blinky2350` / `badgeware-badger2350` variants can reuse them). The
+base `pyscript` / `standard` variants build the plain webassembly port.
 
 It activates emscripten from `web/emsdk/emsdk_env.sh` if `emcc` isn't already on
 `PATH`.

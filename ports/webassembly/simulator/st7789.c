@@ -11,9 +11,11 @@
 #include <emscripten.h>
 #include <emscripten/em_asm.h>
 
-// Defined in simulator/machine.cpp: resets the cooperative-yield throttle since
-// the emscripten_sleep() below has just given the event loop a turn.
-extern void mp_simulator_mark_yield(void);
+#if MICROPY_ENABLE_VM_YIELD
+// Defined in main.c: resets the cooperative-yield throttle, since the
+// emscripten_sleep() in update() has just given the event loop a turn.
+extern void mp_js_yield_reset(void);
+#endif
 
 // 320x240 RGBA, large enough for the hires mode; lores uses the first quarter.
 static uint32_t framebuffer[320 * 240];
@@ -52,7 +54,9 @@ static mp_obj_t st7789_update(size_t n_args, const mp_obj_t *args) {
         }, (uint8_t *)framebuffer);
     }
     emscripten_sleep(6);
-    mp_simulator_mark_yield();
+#if MICROPY_ENABLE_VM_YIELD
+    mp_js_yield_reset();
+#endif
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st7789_update_obj, 1, 2, st7789_update);

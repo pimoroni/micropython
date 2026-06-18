@@ -17,7 +17,7 @@ WEB_DIR="$(cd "$PORT_DIR/../../.." && pwd)"          # .../web
 EMSDK_ENV="$WEB_DIR/emsdk/emsdk_env.sh"
 DEPLOY_DIR="$WEB_DIR/badgeware-web/simulator"
 
-VARIANT="${VARIANT:-pyscript}"
+VARIANT="${VARIANT:-badgeware-tufty2350}"
 BUILD_DIR="$PORT_DIR/build-$VARIANT"
 
 clean=0

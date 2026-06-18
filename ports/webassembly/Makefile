@@ -36,7 +36,6 @@ include $(TOP)/extmod/extmod.mk
 # Project specific settings and compiler/linker flags.
 
 CC = emcc
-CXX = em++
 LD = emcc
 NODE ?= node
 TERSER ?= npx terser
@@ -45,19 +44,15 @@ INC += -I.
 INC += -I$(TOP)
 INC += -I$(BUILD)
 INC += -I$(VARIANT_DIR)
-INC += -I$(TOP)/ports/webassembly/picovector/lib/pngdec
-INC += -I$(TOP)/ports/webassembly/picovector/lib/jpegdec
 
-CXXFLAGS = $(CFLAGS) -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1 -fwasm-exceptions
+# Overridable by variants. The badgeware variants build with -std=gnu99 (EM_ASM
+# requires a GNU mode) and SUPPORT_LONGJMP=wasm (they use -fwasm-exceptions).
+CSTD ?= c99
+SUPPORT_LONGJMP ?= emscripten
 
-CFLAGS += -std=gnu99 -Wall -Werror -Wdouble-promotion -Wfloat-conversion -Wno-deprecated-non-prototype -DMICROPY_MALLOC_USES_ALLOCATED_SIZE=1
-CFLAGS += -O2 -DNDEBUG -fwasm-exceptions
-CFLAGS += -gsource-map
+CFLAGS += -std=$(CSTD) -Wall -Werror -Wdouble-promotion -Wfloat-conversion
+CFLAGS += -Os -DNDEBUG
 CFLAGS += $(INC)
-
-LDFLAGS += -specs=nano.specs -fwasm-exceptions
-CXXFLAGS += $(INC) -std=c++17 -Wno-error -fms-extensions -fno-exceptions -fno-unwind-tables -fno-rtti -fno-use-cxa-atexit
-CXXFLAGS += -DPV_DUAL_CORE=0 -DPV_PROFILE=0 -DTUFTY=1
 
 EXPORTED_FUNCTIONS_EXTRA += ,\
 	_mp_js_do_exec,\
@@ -81,15 +76,14 @@ EXPORTED_FUNCTIONS_EXTRA += ,\
 	_proxy_convert_mp_to_js_obj_cside
 
 EXPORTED_RUNTIME_METHODS_EXTRA += ,\
+	HEAPU8,\
 	PATH,\
 	PATH_FS,\
-	stringToNewUTF8,\
 	UTF8ToString,\
 	getValue,\
 	lengthBytesUTF8,\
 	setValue,\
-	stringToUTF8,\
-	HEAPU8
+	stringToUTF8
 
 JSFLAGS += -s EXPORTED_FUNCTIONS="\
 	_free,\
@@ -104,17 +98,8 @@ JSFLAGS += -s EXPORTED_RUNTIME_METHODS="\
 	cwrap,\
 	FS$(EXPORTED_RUNTIME_METHODS_EXTRA)"
 JSFLAGS += --js-library library.js
-JSFLAGS += --js-library simulator/jsfetch.js
-JSFLAGS += -s SUPPORT_LONGJMP=wasm
+JSFLAGS += -s SUPPORT_LONGJMP=$(SUPPORT_LONGJMP)
 JSFLAGS += -s MODULARIZE -s EXPORT_NAME=_createMicroPythonModule
-JSFLAGS += -s ASYNCIFY=0
-JSFLAGS += -s JSPI=1
-JSFLAGS += -s JSPI_EXPORTS=["mp_js_do_exec","mp_js_do_exec_async","mp_js_do_import"]
-JSFLAGS += -s ALLOW_TABLE_GROWTH=1
-JSFLAGS += -s WASM_BIGINT=1
-#JSFLAGS += -s ASYNCIFY_STACK_SIZE=131072
-#JSFLAGS += -s STACK_SIZE=65536 -s ALLOW_MEMORY_GROWTH=1
-#JSFLAGS += -s ASYNCIFY_ONLY=['mp_module_simulator_update']
 
 ################################################################################
 # Source files and libraries.
@@ -134,57 +119,10 @@ SRC_C += \
 	modjsffi.c \
 	mphalport.c \
 	objjsproxy.c \
-	proxy_c.c \
-	simulator/st7789.c \
-	simulator/jsfetch.c \
-	picovector/micropython/picovector_bindings.c \
-    picovector/lib/pngdec/adler32.c \
-    picovector/lib/pngdec/crc32.c \
-    picovector/lib/pngdec/infback.c \
-    picovector/lib/pngdec/inffast.c \
-    picovector/lib/pngdec/inflate.c \
-    picovector/lib/pngdec/inftrees.c \
-    picovector/lib/pngdec/zutil.c
+	proxy_c.c
 
-SRC_CXX = \
-	picovector/micropython/picovector.cpp \
-	picovector/picovector.cpp \
-	picovector/shape.cpp \
-	picovector/font.cpp \
-	picovector/pixel_font.cpp \
-	picovector/image.cpp \
-	picovector/brush.cpp \
-	picovector/color.cpp \
-	picovector/primitive.cpp \
-	picovector/algorithms/geometry.cpp \
-	picovector/algorithms/dda.cpp \
-	picovector/brushes/pattern.cpp \
-	picovector/brushes/color.cpp \
-	picovector/brushes/image.cpp \
-	picovector/brushes/gradient.cpp \
-	picovector/brushes/pixelate.cpp \
-	picovector/brushes/blur.cpp \
-	picovector/brushes/brightness.cpp \
-	picovector/filters/blur.cpp \
-	picovector/filters/dither.cpp \
-	picovector/filters/monochrome.cpp \
-	picovector/filters/onebit.cpp \
-	picovector/micropython/brush.cpp \
-	picovector/micropython/color.cpp \
-	picovector/micropython/font.cpp \
-	picovector/micropython/image_jpeg.cpp \
-	picovector/micropython/image_png.cpp \
-	picovector/micropython/image.cpp \
-	picovector/micropython/mat3.cpp \
-	picovector/micropython/pixel_font.cpp \
-	picovector/micropython/shape.cpp \
-	picovector/micropython/rect.cpp \
-	picovector/micropython/vec2.cpp \
-	picovector/micropython/algorithm.cpp \
-	simulator/machine.cpp \
-	simulator/input.cpp \
-	picovector/lib/pngdec/PNGdec.cpp \
-	picovector/lib/jpegdec/JPEGdec.cpp
+# Badgeware variants add the picovector library and the simulator C/C++ modules
+# to SRC_C / SRC_CXX via variants/badgeware.mk.
 
 # List of sources for qstr extraction.
 SRC_QSTR += $(SRC_C) $(SRC_CXX) $(SRC_SHARED)

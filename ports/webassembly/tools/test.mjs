@@ -21,7 +21,7 @@ import { dirname, resolve } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const mjsPath = process.argv[2]
   ? resolve(process.argv[2])
-  : resolve(__dirname, "../build-pyscript/micropython.mjs");
+  : resolve(__dirname, "../build-badgeware-tufty2350/micropython.mjs");
 
 let pass = 0;
 let fail = 0;
@@ -269,6 +269,83 @@ assert "joke" in j and "category" in j, j
   if (f.ok) ok(`fetch.AsyncFetch -> ${url}`, true);
   else if (netErr.test(f.err)) skip(`fetch.AsyncFetch -> ${url}`, "network unavailable");
   else ok(`fetch.AsyncFetch -> ${url}`, false, f.err);
+}
+
+// ------------------------------------------------- common firmware modules
+group("firmware modules (board / easing / pimoroni / wifi)");
+{
+  // board: enumerates machine.Pin.board via __dict__ (needs the shim's __dict__).
+  const b = await run(`
+import board
+assert board.CL0.value is not None, "board.CL0 missing"
+assert hasattr(board, "BUTTON_A"), "board.BUTTON_A missing"
+assert hasattr(board, "LIGHT_SENSE"), "board.LIGHT_SENSE missing"
+`);
+  ok("board (machine.Pin.board.__dict__)", b.ok, b.err);
+
+  // easing: pure math, unchanged.
+  const e = await run(`
+import easing
+assert easing.linear(0.5) == 0.5
+assert easing.easeInQuad(0.5) == 0.25
+assert easing.easeOutQuad(0.5) == 0.75
+assert easing.easeInOutQuad(0.5) == 0.5
+assert easing.easeOutBounce(1.0) == 1.0          # peaks at exactly 1.0
+assert 0.0 <= easing.easeOutBounce(0.7) <= 1.0   # no overshoot
+`);
+  ok("easing (unchanged)", e.ok, e.err);
+
+  // pimoroni: imports, and the classes that use badge-present pins work.
+  const p = await run(`
+import pimoroni, machine
+# ADC-backed Analog on a real ADC pin
+a = pimoroni.Analog(machine.Pin.board.VBAT_SENSE)
+assert a.read_voltage() > 0.0, "Analog.read_voltage"
+# Button on a real button pin (active low)
+btn = pimoroni.Button(machine.Pin.board.BUTTON_A)
+_ = btn.is_pressed
+# PWM-backed LED on a caselight pin
+led = pimoroni.PWMLED(machine.Pin.board.CL0)
+led.brightness(0.5)
+led.on(); led.off()
+`);
+  ok("pimoroni (import + badge-pin classes)", p.ok, p.err);
+
+  // wifi: shim reports connected after connect().
+  const w = await run(`
+import wifi
+assert wifi.is_connected() is False
+assert wifi.connect() is True
+assert wifi.is_connected() is True
+assert wifi.tick() is True
+assert wifi.ip() == "127.0.0.1"
+assert wifi.status()[0] == 3
+wifi.disconnect()
+assert wifi.is_connected() is False
+`);
+  ok("wifi (simulator shim)", w.ok, w.err);
+
+  // secrets: loader falls back to /system/secrets.py. Stub badgeware (the real
+  // one needs the full filesystem) and provide a default secrets file.
+  mp.FS.writeFile("/badgeware.py", "def fatal_error(*a, **k):\n    pass\n");
+  try { mp.FS.mkdir("/system"); } catch (_) {}
+  mp.FS.writeFile("/system/secrets.py", "WIFI_SSID = 'testnet'\nWIFI_PASSWORD = 'pw'\nREGION = 'eu'\nTIMEZONE = 0\n");
+  const s = await run(`
+import secrets
+assert secrets.WIFI_SSID == "testnet", secrets.WIFI_SSID
+assert secrets.REGION == "eu", secrets.REGION
+assert callable(secrets.require), "require missing"
+secrets.require("WIFI_SSID")   # present -> no fatal_error
+`);
+  ok("secrets (loader + /system/secrets fallback)", s.ok, s.err);
+
+  // ntptime: shim reads the host clock; settime() writes the RTC.
+  const n = await run(`
+import ntptime
+assert ntptime.time() > 1700000000, ntptime.time()   # sometime after 2023
+ntptime.settime()                                     # no socket, no error
+`);
+  ok("ntptime (shim)", n.ok, n.err);
 }
 
 // ------------------------------------------------------------------ summary

@@ -88,16 +88,63 @@ export async function loadMicroPython(options) {
     Module = await _createMicroPythonModule(Module);
     globalThis.Module = Module;
     proxy_js_init();
-    const pyimport = async (name) => {
-        const value = Module._malloc(3 * 4);
-        const _name = Module.stringToNewUTF8(name);
-        try {
-            await Module._mp_js_do_import(_name, value);
-        } finally {
-            Module._free(_name);
-        }
-        return proxy_convert_mp_to_js_obj_jsside_with_free(value);
+
+    // The MicroPython entry points (mp_js_do_exec / _async / _import) can run
+    // synchronously or suspend to the JS event loop, depending on the build's
+    // async backend. `invoke` issues the call the right way for the backend and
+    // `settle` awaits the result only when it's actually a Promise:
+    //   "jspi"     - the export is a promising function; call it directly.
+    //   "asyncify" - suspend via ccall({async: true}).
+    //   undefined  - a plain synchronous ccall (upstream behaviour).
+    // The backend is announced by the build (see async_jspi.js / async_asyncify.js,
+    // added to SRC_JS by the variant); a plain build leaves it unset and stays
+    // fully synchronous. Both async backends produce a Promise, so the rest of
+    // the code is identical for either — easing the JSPI<->Asyncify migration.
+    const asyncMode = globalThis.__MICROPYTHON_ASYNC__;
+
+    const invoke = (name, argTypes, args) =>
+        asyncMode === "jspi"
+            ? Module["_" + name].apply(null, args)
+            : Module.ccall(
+                  name,
+                  "number",
+                  argTypes,
+                  args,
+                  asyncMode === "asyncify" ? { async: true } : undefined,
+              );
+
+    const isThenable = (x) =>
+        x !== null &&
+        (typeof x === "object" || typeof x === "function") &&
+        typeof x.then === "function";
+
+    // Once `call` has settled, free the temporary input buffer and convert the
+    // result slot `value` to a JS object.
+    const settle = (call, value, freeInput) => {
+        const finish = () => {
+            freeInput();
+            return proxy_convert_mp_to_js_obj_jsside_with_free(value);
+        };
+        return isThenable(call)
+            ? call.then(finish, (err) => {
+                  freeInput();
+                  throw err;
+              })
+            : finish();
     };
+
+    const pyimport = (name) => {
+        const value = Module._malloc(3 * 4);
+        const len = Module.lengthBytesUTF8(name);
+        const _name = Module._malloc(len + 1);
+        Module.stringToUTF8(name, _name, len + 1);
+        return settle(
+            invoke("mp_js_do_import", ["pointer", "pointer"], [_name, value]),
+            value,
+            () => Module._free(_name),
+        );
+    };
+
     Module.ccall(
         "mp_js_init",
         "null",
@@ -105,12 +152,17 @@ export async function loadMicroPython(options) {
         [pystack, heapsize],
     );
     Module.ccall("proxy_c_init", "null", [], []);
+
+    // pyimport returns a Promise under JSPI; `await` is a no-op on a plain value,
+    // so this resolves __main__ correctly for every build before building globals.
+    const mainModule = await pyimport("__main__");
+
     return {
         _module: Module,
         PyProxy: PyProxy,
         FS: Module.FS,
         globals: {
-            __dict__: pyimport("__main__").__dict__,
+            __dict__: mainModule.__dict__,
             get(key) {
                 return this.__dict__[key];
             },
@@ -133,40 +185,30 @@ export async function loadMicroPython(options) {
             Module._free(value);
         },
         pyimport: pyimport,
-        async runPython(code) {
+        runPython(code) {
             const len = Module.lengthBytesUTF8(code);
             const buf = Module._malloc(len + 1);
             Module.stringToUTF8(code, buf, len + 1);
             const value = Module._malloc(3 * 4);
-            
-            try {
-                // Direct invocation on the native JSPI promise stack
-                await Module._mp_js_do_exec(buf, len, value);
-            } finally {
-                // Ensures memory is freed even if MicroPython throws an execution error
-                Module._free(buf);
-            }
-
-            return proxy_convert_mp_to_js_obj_jsside_with_free(value);
+            return settle(
+                invoke("mp_js_do_exec", ["pointer", "number", "pointer"], [buf, len, value]),
+                value,
+                () => Module._free(buf),
+            );
         },
-        async runPythonAsync(code) {
+        runPythonAsync(code) {
             const len = Module.lengthBytesUTF8(code);
             const buf = Module._malloc(len + 1);
             Module.stringToUTF8(code, buf, len + 1);
             const value = Module._malloc(3 * 4);
-            
-            try {
-                // Direct invocation on the native JSPI promise stack
-                await Module._mp_js_do_exec_async(buf, len, value);
-            } finally {
-                Module._free(buf);
-            }
-
-            const ret = proxy_convert_mp_to_js_obj_jsside_with_free(value);
-            if (ret instanceof PyProxyThenable) {
-                return Promise.resolve(ret);
-            }
-            return ret;
+            const ret = settle(
+                invoke("mp_js_do_exec_async", ["pointer", "number", "pointer"], [buf, len, value]),
+                value,
+                () => Module._free(buf),
+            );
+            const wrap = (r) =>
+                r instanceof PyProxyThenable ? Promise.resolve(r) : r;
+            return isThenable(ret) ? ret.then(wrap) : wrap(ret);
         },
         replInit() {
             Module.ccall("mp_js_repl_init", "null", ["null"]);

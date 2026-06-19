@@ -120,7 +120,7 @@
 #endif
 
 #if MICROPY_GC_NO_SCAN
-// NTB = no-trace table byte
+// NTB = no-scan table byte
 // if set on a head block, the GC mark phase does not scan its contents for
 // pointers (the block holds pure data, e.g. a bytearray/array buffer).
 #define BLOCKS_PER_NTB (8)
@@ -1001,8 +1001,8 @@ found:
     #if MICROPY_GC_NO_SCAN
     // Tag (or untag) the head block so the mark phase knows whether to scan it.
     // Done under the lock we already hold; always written so a reused block
-    // never inherits a stale no-trace bit.
-    if (alloc_flags & GC_ALLOC_FLAG_NO_TRACE) {
+    // never inherits a stale no-scan bit.
+    if (alloc_flags & GC_ALLOC_FLAG_NO_SCAN) {
         NTB_SET(area, start_block);
     } else {
         NTB_CLEAR(area, start_block);
@@ -1301,9 +1301,9 @@ void *gc_realloc(void *ptr_in, size_t n_bytes, bool allow_move) {
 
     unsigned int realloc_flags = ftb_state ? GC_ALLOC_FLAG_HAS_FINALISER : 0;
     #if MICROPY_GC_NO_SCAN
-    // Preserve the no-trace tag if the block being moved was pure data.
+    // Preserve the no-scan tag if the block being moved was pure data.
     if (NTB_GET(area, block)) {
-        realloc_flags |= GC_ALLOC_FLAG_NO_TRACE;
+        realloc_flags |= GC_ALLOC_FLAG_NO_SCAN;
     }
     #endif
 

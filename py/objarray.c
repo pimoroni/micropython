@@ -108,8 +108,8 @@ static mp_obj_array_t *array_new(char typecode, size_t n) {
     o->free = 0;
     o->len = n;
     // array/bytearray items are always pure numeric data (no heap pointers),
-    // so tag the buffer no-trace to keep it out of the GC mark scan.
-    o->items = m_new_no_trace(byte, typecode_size * o->len);
+    // so tag the buffer no-scan to keep it out of the GC mark scan.
+    o->items = m_new_no_scan(byte, typecode_size * o->len);
     return o;
 }
 #endif

@@ -532,7 +532,15 @@ static void gc_mark_subtree(size_t block)
         #endif
 
         // work out number of consecutive blocks in the chain starting with this one
+        // A block tagged no-scan holds pure data with no child pointers, so we
+        // skip walking its chain here: leaving n_blocks == 0 makes the scan loop
+        // below a no-op. This avoids reading the allocation table for every block
+        // of a large data buffer (e.g. a multi-MB bytearray, especially in slow
+        // PSRAM) just to mark it.
         size_t n_blocks = 0;
+        #if MICROPY_GC_NO_SCAN
+        if (!NTB_GET(area, block))
+        #endif
         do {
             n_blocks += 1;
         } while (ATB_GET_KIND(area, block + n_blocks) == AT_TAIL);
@@ -540,15 +548,9 @@ static void gc_mark_subtree(size_t block)
         // check that the consecutive blocks didn't overflow past the end of the area
         assert(area->gc_pool_start + (block + n_blocks) * BYTES_PER_BLOCK <= area->gc_pool_end);
 
-        // check this block's children, unless it is tagged as holding no
-        // pointers (pure data), in which case scanning it is pure waste.
-        #if MICROPY_GC_NO_SCAN
-        bool scan_block = !NTB_GET(area, block);
-        #else
-        const bool scan_block = true;
-        #endif
+        // check this block's children
         void **ptrs = (void **)PTR_FROM_BLOCK(area, block);
-        for (size_t i = scan_block ? n_blocks * BYTES_PER_BLOCK / sizeof(void *) : 0; i > 0; i--, ptrs++) {
+        for (size_t i = n_blocks * BYTES_PER_BLOCK / sizeof(void *); i > 0; i--, ptrs++) {
             MICROPY_GC_HOOK_LOOP(i);
             void *ptr = *ptrs;
             // If this is a heap pointer that hasn't been marked, mark it and push

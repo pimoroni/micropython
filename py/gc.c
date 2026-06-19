@@ -119,6 +119,16 @@
 #define WTB_CLEAR(area, block) do { area->gc_weakref_table_start[(block) / BLOCKS_PER_WTB] &= (~(1 << ((block) & 7))); } while (0)
 #endif
 
+#if MICROPY_GC_NO_SCAN
+// NTB = no-trace table byte
+// if set on a head block, the GC mark phase does not scan its contents for
+// pointers (the block holds pure data, e.g. a bytearray/array buffer).
+#define BLOCKS_PER_NTB (8)
+#define NTB_GET(area, block) ((area->gc_no_scan_table_start[(block) / BLOCKS_PER_NTB] >> ((block) & 7)) & 1)
+#define NTB_SET(area, block) do { area->gc_no_scan_table_start[(block) / BLOCKS_PER_NTB] |= (1 << ((block) & 7)); } while (0)
+#define NTB_CLEAR(area, block) do { area->gc_no_scan_table_start[(block) / BLOCKS_PER_NTB] &= (~(1 << ((block) & 7))); } while (0)
+#endif
+
 #if MICROPY_PY_THREAD && !MICROPY_PY_THREAD_GIL
 #define GC_MUTEX_INIT() mp_thread_recursive_mutex_init(&MP_STATE_MEM(gc_mutex))
 #define GC_ENTER() mp_thread_recursive_mutex_lock(&MP_STATE_MEM(gc_mutex), 1)
@@ -151,7 +161,7 @@ static void gc_setup_area(mp_state_mem_area_t *area, void *start, void *end) {
     //     P = A * BLOCKS_PER_ATB * BYTES_PER_BLOCK
     // => T = A * (1 + BLOCKS_PER_ATB / BLOCKS_PER_FTB + BLOCKS_PER_ATB / BLOCKS_PER_WTB + BLOCKS_PER_ATB * BYTES_PER_BLOCK)
     size_t total_byte_len = (byte *)end - (byte *)start;
-    #if MICROPY_ENABLE_FINALISER || MICROPY_PY_WEAKREF
+    #if MICROPY_ENABLE_FINALISER || MICROPY_PY_WEAKREF || MICROPY_GC_NO_SCAN
     area->gc_alloc_table_byte_len = (total_byte_len - ALLOC_TABLE_GAP_BYTE)
         * MP_BITS_PER_BYTE
         / (
@@ -161,6 +171,9 @@ static void gc_setup_area(mp_state_mem_area_t *area, void *start, void *end) {
             #endif
             #if MICROPY_PY_WEAKREF
             + MP_BITS_PER_BYTE * BLOCKS_PER_ATB / BLOCKS_PER_WTB
+            #endif
+            #if MICROPY_GC_NO_SCAN
+            + MP_BITS_PER_BYTE * BLOCKS_PER_ATB / BLOCKS_PER_NTB
             #endif
             + MP_BITS_PER_BYTE * BLOCKS_PER_ATB * BYTES_PER_BLOCK
             );
@@ -183,6 +196,11 @@ static void gc_setup_area(mp_state_mem_area_t *area, void *start, void *end) {
     area->gc_weakref_table_start = next_table;
     next_table += gc_weakref_table_byte_len;
     #endif
+    #if MICROPY_GC_NO_SCAN
+    size_t gc_no_scan_table_byte_len = (area->gc_alloc_table_byte_len * BLOCKS_PER_ATB + BLOCKS_PER_NTB - 1) / BLOCKS_PER_NTB;
+    area->gc_no_scan_table_start = next_table;
+    next_table += gc_no_scan_table_byte_len;
+    #endif
 
     // Allocate the GC pool of heap blocks.
     size_t gc_pool_block_len = area->gc_alloc_table_byte_len * BLOCKS_PER_ATB;
@@ -198,6 +216,9 @@ static void gc_setup_area(mp_state_mem_area_t *area, void *start, void *end) {
         #endif
         #if MICROPY_PY_WEAKREF
         + gc_weakref_table_byte_len
+        #endif
+        #if MICROPY_GC_NO_SCAN
+        + gc_no_scan_table_byte_len
         #endif
         );
 
@@ -519,9 +540,15 @@ static void gc_mark_subtree(size_t block)
         // check that the consecutive blocks didn't overflow past the end of the area
         assert(area->gc_pool_start + (block + n_blocks) * BYTES_PER_BLOCK <= area->gc_pool_end);
 
-        // check this block's children
+        // check this block's children, unless it is tagged as holding no
+        // pointers (pure data), in which case scanning it is pure waste.
+        #if MICROPY_GC_NO_SCAN
+        bool scan_block = !NTB_GET(area, block);
+        #else
+        const bool scan_block = true;
+        #endif
         void **ptrs = (void **)PTR_FROM_BLOCK(area, block);
-        for (size_t i = n_blocks * BYTES_PER_BLOCK / sizeof(void *); i > 0; i--, ptrs++) {
+        for (size_t i = scan_block ? n_blocks * BYTES_PER_BLOCK / sizeof(void *) : 0; i > 0; i--, ptrs++) {
             MICROPY_GC_HOOK_LOOP(i);
             void *ptr = *ptrs;
             // If this is a heap pointer that hasn't been marked, mark it and push
@@ -971,6 +998,17 @@ found:
     // mark first block as used head
     ATB_FREE_TO_HEAD(area, start_block);
 
+    #if MICROPY_GC_NO_SCAN
+    // Tag (or untag) the head block so the mark phase knows whether to scan it.
+    // Done under the lock we already hold; always written so a reused block
+    // never inherits a stale no-trace bit.
+    if (alloc_flags & GC_ALLOC_FLAG_NO_TRACE) {
+        NTB_SET(area, start_block);
+    } else {
+        NTB_CLEAR(area, start_block);
+    }
+    #endif
+
     // mark rest of blocks as used tail
     // TODO for a run of many blocks can make this more efficient
     for (size_t bl = start_block + 1; bl <= end_block; bl++) {
@@ -1012,6 +1050,7 @@ found:
     #else
     (void)has_finaliser;
     #endif
+
 
     #if EXTENSIVE_HEAP_PROFILING
     gc_dump_alloc_table(&mp_plat_print);
@@ -1260,6 +1299,14 @@ void *gc_realloc(void *ptr_in, size_t n_bytes, bool allow_move) {
     bool ftb_state = false;
     #endif
 
+    unsigned int realloc_flags = ftb_state ? GC_ALLOC_FLAG_HAS_FINALISER : 0;
+    #if MICROPY_GC_NO_SCAN
+    // Preserve the no-trace tag if the block being moved was pure data.
+    if (NTB_GET(area, block)) {
+        realloc_flags |= GC_ALLOC_FLAG_NO_TRACE;
+    }
+    #endif
+
     GC_EXIT();
 
     if (!allow_move) {
@@ -1268,7 +1315,7 @@ void *gc_realloc(void *ptr_in, size_t n_bytes, bool allow_move) {
     }
 
     // can't resize inplace; try to find a new contiguous chain
-    void *ptr_out = gc_alloc(n_bytes, ftb_state);
+    void *ptr_out = gc_alloc(n_bytes, realloc_flags);
 
     // check that the alloc succeeded
     if (ptr_out == NULL) {

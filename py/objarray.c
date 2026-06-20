@@ -193,8 +193,11 @@ static mp_obj_t bytearray_make_new(const mp_obj_type_t *type_in, size_t n_args, 
         // 1 arg, an integer: construct a blank bytearray of that length
         mp_uint_t len = mp_obj_get_int(args[0]);
         mp_obj_array_t *o = array_new(BYTEARRAY_TYPECODE, len);
-        // If this config is set then the GC clears all memory, so we don't need to.
-        #if !MICROPY_GC_CONSERVATIVE_CLEAR
+        // bytearray(n) must come back zeroed. array_new returns uninitialised
+        // memory only when no_scan supplied NO_CLEAR; otherwise the allocator
+        // already cleared it (conservative clear). Zero here only when it wasn't
+        // already done, to avoid a redundant second pass over the buffer.
+        #if MICROPY_GC_NO_SCAN || !MICROPY_GC_CONSERVATIVE_CLEAR
         memset(o->items, 0, len);
         #endif
         return MP_OBJ_FROM_PTR(o);

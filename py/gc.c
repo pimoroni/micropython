@@ -53,6 +53,12 @@
 // detect untraced object still in use
 #define CLEAR_ON_SWEEP (0)
 
+#if CLEAR_ON_SWEEP
+#define GC_CLEAR_BLOCKS(area, block, n) memset((void *)PTR_FROM_BLOCK(area, block), 0, (n) * BYTES_PER_BLOCK)
+#else
+#define GC_CLEAR_BLOCKS(area, block, n)
+#endif
+
 #define WORDS_PER_BLOCK ((MICROPY_BYTES_PER_GC_BLOCK) / MP_BYTES_PER_OBJ_WORD)
 #define BYTES_PER_BLOCK (MICROPY_BYTES_PER_GC_BLOCK)
 
@@ -77,6 +83,13 @@
 #define ATB_1_IS_FREE(a) (((a) & ATB_MASK_1) == 0)
 #define ATB_2_IS_FREE(a) (((a) & ATB_MASK_2) == 0)
 #define ATB_3_IS_FREE(a) (((a) & ATB_MASK_3) == 0)
+
+// An ATB byte/word that is entirely AT_TAIL (0b10) entries: four / sixteen
+// consecutive tail blocks, i.e. the interior of a large allocation. Used by
+// the sweep to coalesce long tail runs instead of walking them block by block.
+#define ATB_ALL_TAIL_BYTE (0xaa)
+#define ATB_ALL_TAIL_WORD (0xaaaaaaaaUL)
+#define BLOCKS_PER_ATB_WORD (BLOCKS_PER_ATB * 4)
 
 #if MICROPY_GC_SPLIT_HEAP
 #define NEXT_AREA(area) ((area)->next)
@@ -718,10 +731,53 @@ static void gc_sweep_free_blocks(void) {
 
     for (mp_state_mem_area_t *area = &MP_STATE_MEM(area); area != NULL; area = NEXT_AREA(area)) {
         size_t last_used_block = 0;
-        assert(area->gc_last_used_block <= area->gc_alloc_table_byte_len * BLOCKS_PER_ATB);
+        size_t end_block = area->gc_last_used_block;
+        assert(end_block <= area->gc_alloc_table_byte_len * BLOCKS_PER_ATB);
 
-        for (size_t block = 0; block <= area->gc_last_used_block; block++) {
+        for (size_t block = 0; block <= end_block; block++) {
             MICROPY_GC_HOOK_LOOP(block);
+
+            // Fast path: coalesce long runs of tail blocks (the body of a large
+            // allocation) a whole ATB word/byte at a time instead of block by
+            // block. A run of AT_TAIL never contains a HEAD/MARK, so free_tail is
+            // constant across it; an all-tail word is therefore wholly live or
+            // wholly dead. This is the dominant sweep cost for multi-block buffers.
+            if ((block & (BLOCKS_PER_ATB - 1)) == 0) {
+                byte *atb = &area->gc_alloc_table_start[block / BLOCKS_PER_ATB];
+                // Either free the whole run (dead body) or just advance past it
+                // (live body), n blocks at a time. atb/block kept in step.
+                #define SWEEP_TAIL_RUN(n, atb_clear) do { \
+                    if (free_tail) { atb_clear; GC_CLEAR_BLOCKS(area, block, n); } \
+                    else { last_used_block = block + (n) - 1; } \
+                    block += (n); \
+                } while (0)
+                // 1. Byte-step (4 blocks) until the ATB pointer is word-aligned...
+                while (((uintptr_t)atb & 3) != 0
+                       && block + BLOCKS_PER_ATB - 1 <= end_block && *atb == ATB_ALL_TAIL_BYTE) {
+                    SWEEP_TAIL_RUN(BLOCKS_PER_ATB, *atb = 0);
+                    atb += 1;
+                }
+                // 2. ...then word-step (16 blocks) through the bulk of the run.
+                //    A single unaligned word access would fault on Cortex-M0+,
+                //    hence the alignment dance above.
+                if (((uintptr_t)atb & 3) == 0) {
+                    while (block + BLOCKS_PER_ATB_WORD - 1 <= end_block
+                           && *(uint32_t *)atb == ATB_ALL_TAIL_WORD) {
+                        SWEEP_TAIL_RUN(BLOCKS_PER_ATB_WORD, *(uint32_t *)atb = 0);
+                        atb += 4;
+                    }
+                }
+                // 3. Byte-step the trailing remainder (< 1 word).
+                while (block + BLOCKS_PER_ATB - 1 <= end_block && *atb == ATB_ALL_TAIL_BYTE) {
+                    SWEEP_TAIL_RUN(BLOCKS_PER_ATB, *atb = 0);
+                    atb += 1;
+                }
+                #undef SWEEP_TAIL_RUN
+                if (block > end_block) {
+                    break;
+                }
+            }
+
             switch (ATB_GET_KIND(area, block)) {
                 case AT_HEAD:
                     free_tail = 1;

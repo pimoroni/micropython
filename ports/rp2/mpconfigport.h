@@ -117,10 +117,15 @@
 
 // Optimisations
 #define MICROPY_OPT_COMPUTED_GOTO               (1)
-#define MICROPY_GC_NO_SCAN                      (1)
+
+// no_scan GC tagging, the sweep tail-skip and NO_CLEAR are always compiled in
+// (py/gc.c etc). The no_scan/NO_CLEAR *benefit* is gated by MICROPY_GC_NO_SCAN,
+// left at its default (off) here so individual boards opt in - e.g. PSRAM boards
+// like Tufty 2350 set MICROPY_GC_NO_SCAN in their mpconfigboard.h.
 
 // Place the bytecode interpreter dispatch loop and its hottest leaf functions
-// into SRAM. This trades ~6KB of RAM for a ~20% interpreter speed-up.
+// into SRAM. This trades ~6KB of RAM for a ~20% interpreter speed-up. Off by
+// default (costs SRAM); a board enables it with MICROPY_HW_VM_IN_RAM.
 #ifndef MICROPY_HW_VM_IN_RAM
 #define MICROPY_HW_VM_IN_RAM                    (0)
 #endif

@@ -59,6 +59,7 @@
 #define malloc(b) gc_alloc((b), 0)
 #define malloc_with_finaliser(b) gc_alloc((b), GC_ALLOC_FLAG_HAS_FINALISER)
 #define malloc_no_scan(b) gc_alloc((b), GC_ALLOC_FLAG_NO_SCAN)
+#define malloc_no_scan_uninit(b) gc_alloc((b), GC_ALLOC_FLAG_NO_SCAN | GC_ALLOC_FLAG_NO_CLEAR)
 #define free gc_free
 #define realloc(ptr, n) gc_realloc(ptr, n, true)
 #define realloc_ext(ptr, n, mv) gc_realloc(ptr, n, mv)
@@ -136,6 +137,20 @@ void *m_malloc_no_scan(size_t num_bytes) {
     UPDATE_PEAK();
     #endif
     DEBUG_printf("malloc(no-scan) %d : %p\n", num_bytes, ptr);
+    return ptr;
+}
+
+void *m_malloc_no_scan_uninit(size_t num_bytes) {
+    void *ptr = malloc_no_scan_uninit(num_bytes);
+    if (ptr == NULL && num_bytes != 0) {
+        m_malloc_fail(num_bytes);
+    }
+    #if MICROPY_MEM_STATS
+    MP_STATE_MEM(total_bytes_allocated) += num_bytes;
+    MP_STATE_MEM(current_bytes_allocated) += num_bytes;
+    UPDATE_PEAK();
+    #endif
+    DEBUG_printf("malloc(no-scan,uninit) %d : %p\n", num_bytes, ptr);
     return ptr;
 }
 #endif

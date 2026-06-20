@@ -68,6 +68,12 @@ enum {
     // Block contains no heap pointers, so the GC mark phase can skip scanning
     // its contents (see MICROPY_GC_NO_SCAN). Only valid for pure-data buffers.
     GC_ALLOC_FLAG_NO_SCAN = 2,
+    // Don't zero the returned memory. The caller guarantees it will overwrite
+    // the buffer before any read. Only valid together with NO_SCAN, since a
+    // scannable block must be cleared so the mark phase can't follow stale
+    // pointer-shaped words. This is the per-allocation form of building with
+    // MICROPY_GC_CONSERVATIVE_CLEAR off, opted into only where it is safe.
+    GC_ALLOC_FLAG_NO_CLEAR = 4,
 };
 
 void *gc_alloc(size_t n_bytes, unsigned int alloc_flags);

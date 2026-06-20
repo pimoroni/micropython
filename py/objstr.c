@@ -2236,8 +2236,9 @@ mp_obj_t mp_obj_new_str_copy(const mp_obj_type_t *type, const byte *data, size_t
     o->len = len;
     if (data) {
         o->hash = qstr_compute_hash(data, len);
-        // str/bytes payload is pure data (no heap pointers): tag it no-scan.
-        byte *p = m_new_no_scan(byte, len + 1);
+        // str/bytes payload is pure data (no heap pointers): tag it no-scan. We
+        // overwrite every byte below (memcpy + null), so skip the alloc-time zero.
+        byte *p = m_new_no_scan_uninit(byte, len + 1);
         o->data = p;
         memcpy(p, data, len * sizeof(byte));
         p[len] = '\0'; // for now we add null for compatibility with C ASCIIZ strings

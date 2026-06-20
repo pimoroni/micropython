@@ -103,11 +103,18 @@ typedef unsigned int uint;
 // m_new_no_scan: like m_new, but the buffer is tagged so the GC won't scan it
 // for pointers. ONLY use for buffers that are guaranteed to hold pure data
 // (no mp_obj_t / heap pointers), e.g. bytearray/array item storage.
+// m_new_no_scan_uninit: like m_new_no_scan, but the buffer is NOT zeroed. ONLY
+// use when the caller overwrites the whole buffer before any read (e.g. a memcpy
+// immediately after). Falls back to a cleared allocation when no_scan is off,
+// since leaving a scannable block uninitialised would be unsafe.
 #if MICROPY_GC_NO_SCAN
 void *m_malloc_no_scan(size_t num_bytes);
+void *m_malloc_no_scan_uninit(size_t num_bytes);
 #define m_new_no_scan(type, num) ((type *)(m_malloc_no_scan(sizeof(type) * (num))))
+#define m_new_no_scan_uninit(type, num) ((type *)(m_malloc_no_scan_uninit(sizeof(type) * (num))))
 #else
 #define m_new_no_scan(type, num) m_new(type, num)
+#define m_new_no_scan_uninit(type, num) m_new(type, num)
 #endif
 #define m_new0(type, num) ((type *)(m_malloc0(sizeof(type) * (num))))
 #define m_new_obj(type) (m_new(type, 1))

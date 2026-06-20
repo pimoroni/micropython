@@ -1084,17 +1084,23 @@ found:
 
     GC_EXIT();
 
-    #if MICROPY_GC_CONSERVATIVE_CLEAR
-    // be conservative and zero out all the newly allocated blocks
-    memset((byte *)ret_ptr, 0, (end_block - start_block + 1) * BYTES_PER_BLOCK);
-    #else
-    // zero out the additional bytes of the newly allocated blocks
-    // This is needed because the blocks may have previously held pointers
-    // to the heap and will not be set to something else if the caller
-    // doesn't actually use the entire block.  As such they will continue
-    // to point to the heap and may prevent other blocks from being reclaimed.
-    memset((byte *)ret_ptr + n_bytes, 0, (end_block - start_block + 1) * BYTES_PER_BLOCK - n_bytes);
-    #endif
+    // NO_CLEAR is only safe on NO_SCAN memory: a scannable block must be zeroed
+    // so the mark phase can't follow stale pointer-shaped words left in it.
+    assert(!(alloc_flags & GC_ALLOC_FLAG_NO_CLEAR) || (alloc_flags & GC_ALLOC_FLAG_NO_SCAN));
+
+    if (!(alloc_flags & GC_ALLOC_FLAG_NO_CLEAR)) {
+        #if MICROPY_GC_CONSERVATIVE_CLEAR
+        // be conservative and zero out all the newly allocated blocks
+        memset((byte *)ret_ptr, 0, (end_block - start_block + 1) * BYTES_PER_BLOCK);
+        #else
+        // zero out the additional bytes of the newly allocated blocks
+        // This is needed because the blocks may have previously held pointers
+        // to the heap and will not be set to something else if the caller
+        // doesn't actually use the entire block.  As such they will continue
+        // to point to the heap and may prevent other blocks from being reclaimed.
+        memset((byte *)ret_ptr + n_bytes, 0, (end_block - start_block + 1) * BYTES_PER_BLOCK - n_bytes);
+        #endif
+    }
 
     #if MICROPY_ENABLE_FINALISER
     if (has_finaliser) {

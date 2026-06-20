@@ -584,7 +584,7 @@ set_source_files_properties(
     ${MICROPY_PY_DIR}/mpz.c
     ${MICROPY_PY_DIR}/vm.c
     PROPERTIES
-    COMPILE_OPTIONS "-O2"
+    COMPILE_OPTIONS "-O3"
 )
 
 set_source_files_properties(

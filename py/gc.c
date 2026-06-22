@@ -132,6 +132,18 @@ static inline size_t GC_CTZ(gc_word_t x) {
 #define FTB_GET(area, block) ((area->gc_finaliser_table_start[(block) / BLOCKS_PER_FTB] >> ((block) & 7)) & 1)
 #define FTB_SET(area, block) do { area->gc_finaliser_table_start[(block) / BLOCKS_PER_FTB] |= (1 << ((block) & 7)); } while (0)
 #define FTB_CLEAR(area, block) do { area->gc_finaliser_table_start[(block) / BLOCKS_PER_FTB] &= (~(1 << ((block) & 7))); } while (0)
+#if !MICROPY_PY_WEAKREF
+// Caller checks alignment; the zero test the sweep does with this is
+// endian-neutral, so no MP_LE32TOH is needed.
+static inline gc_word_t gc_read_ftb_word(const byte *ftb) {
+    #if defined(__GNUC__)
+    ftb = __builtin_assume_aligned(ftb, sizeof(gc_word_t));
+    #endif
+    gc_word_t w;
+    memcpy(&w, ftb, sizeof(w));
+    return w;
+}
+#endif
 #endif
 
 #if MICROPY_PY_WEAKREF
@@ -719,6 +731,23 @@ static void gc_sweep_run_finalisers(void) {
         // Small speed optimisation: skip over empty FTB blocks
         size_t ftb_end = area->gc_last_used_block / BLOCKS_PER_FTB; // index is inclusive
         for (size_t ftb_idx = 0; ftb_idx <= ftb_end; ftb_idx++) {
+            #if MICROPY_ENABLE_FINALISER && !MICROPY_PY_WEAKREF
+            // Sibling of the sweep's word scan, for the finaliser table: skip
+            // spans with no finaliser bits a word (32 blocks) at a time. The FTB
+            // over a large pure-data buffer is all zero but is otherwise scanned
+            // byte-by-byte up to the high-water mark (costly on a PSRAM heap).
+            // The FTB start is not word-aligned like the ATB, so byte-walk to
+            // alignment via the for-loop first; a non-zero word always falls
+            // through to the per-byte handler, so finaliser execution is
+            // unaffected. Restricted to the FTB-only case (weakref disabled),
+            // the table walked here.
+            if (((uintptr_t)&area->gc_finaliser_table_start[ftb_idx] & (sizeof(gc_word_t) - 1)) == 0
+                && ftb_idx + sizeof(gc_word_t) - 1 <= ftb_end
+                && gc_read_ftb_word(&area->gc_finaliser_table_start[ftb_idx]) == 0) {
+                ftb_idx += sizeof(gc_word_t) - 1; // the for-loop's ++ advances a full word
+                continue;
+            }
+            #endif
             #if MICROPY_ENABLE_FINALISER
             byte ftb = area->gc_finaliser_table_start[ftb_idx];
             size_t block = ftb_idx * BLOCKS_PER_FTB;

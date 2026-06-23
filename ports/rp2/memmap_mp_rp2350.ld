@@ -230,7 +230,7 @@ SECTIONS
         KEEP(*(.heap*))
         /* historically on GCC sbrk was growing past __HeapLimit to __StackLimit, however
            to be more compatible, we now set __HeapLimit explicitly to where the end of the heap is */
-        /* Change for MicroPython: don't include this, it increases reported firmware size.
+        /* Change for MicroPython: don't include this, it increases reported firmware size. */
         /* . = ORIGIN(RAM) + LENGTH(RAM); */
         __HeapLimit = .;
     } > RAM

@@ -113,4 +113,9 @@ typedef struct _mp_parse_t {
 mp_parse_tree_t mp_parse(struct _mp_lexer_t *lex, mp_parse_input_kind_t input_kind);
 void mp_parse_tree_clear(mp_parse_tree_t *tree);
 
+// Lend the parser a scratch SRAM buffer to bump-allocate the transient parse
+// tree from (NULL to disable). The buffer is reused per parse and never freed
+// by the parser. Single parse at a time (no nesting/threads).
+void mp_parse_set_arena(void *buf, size_t len);
+
 #endif // MICROPY_INCLUDED_PY_PARSE_H

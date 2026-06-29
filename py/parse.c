@@ -240,7 +240,26 @@ typedef struct _parser_t {
     #if MICROPY_COMP_CONST
     mp_map_t consts;
     #endif
+
+    bool using_arena;
 } parser_t;
+
+// Optional caller-supplied scratch arena for the (transient) parse tree.  Lets a
+// port bump-allocate parse nodes from fast SRAM it already owns (e.g. a display
+// framebuffer not yet in use at boot) instead of the GC heap, then reclaim it.
+// The tree is consumed by the compiler and discarded, so the arena is reused per
+// parse (offset reset each call); overflow falls back to GC-heap chunks.
+// NOTE: single parse at a time only (no nesting/threads) - the caller must clear
+// the arena before any concurrent/reentrant compile.
+static uint8_t *parse_arena_base;
+static size_t parse_arena_size;
+static size_t parse_arena_used;
+
+void mp_parse_set_arena(void *buf, size_t len) {
+    parse_arena_base = (uint8_t *)buf;
+    parse_arena_size = (buf == NULL) ? 0 : len;
+    parse_arena_used = 0;
+}
 
 static void push_result_rule(parser_t *parser, size_t src_line, uint8_t rule_id, size_t num_args);
 
@@ -253,6 +272,14 @@ static const uint16_t *get_rule_arg(uint8_t r_id) {
 }
 
 static void *parser_alloc(parser_t *parser, size_t num_bytes) {
+    // Fast path: bump-allocate from the caller-supplied SRAM arena if it fits.
+    // Parse-node sizes are multiples of the node size, so this stays aligned.
+    if (parser->using_arena && parse_arena_used + num_bytes <= parse_arena_size) {
+        void *ret = parse_arena_base + parse_arena_used;
+        parse_arena_used += num_bytes;
+        return ret;
+    }
+
     // use a custom memory allocator to store parse nodes sequentially in large chunks
 
     mp_parse_chunk_t *chunk = parser->cur_chunk;
@@ -1052,6 +1079,11 @@ mp_parse_tree_t mp_parse(mp_lexer_t *lex, mp_parse_input_kind_t input_kind) {
     // initialise parser and allocate memory for its stacks
 
     parser_t parser;
+
+    // Use the caller-supplied SRAM arena for this parse (reset offset). Reused
+    // each parse; the previous tree is already compiled+discarded by now.
+    parser.using_arena = (parse_arena_base != NULL);
+    parse_arena_used = 0;
 
     parser.rule_stack_alloc = MICROPY_ALLOC_PARSE_RULE_INIT;
     parser.rule_stack_top = 0;

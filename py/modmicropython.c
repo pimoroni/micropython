@@ -31,6 +31,7 @@
 #include "py/runtime.h"
 #include "py/gc.h"
 #include "py/mphal.h"
+#include "py/parse.h"
 
 #if MICROPY_PY_MICROPYTHON
 
@@ -106,6 +107,19 @@ static mp_obj_t mp_micropython_qstr_info(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_micropython_qstr_info_obj, 0, 1, mp_micropython_qstr_info);
+
+// Lend (or clear, with None) a scratch SRAM buffer for the parse tree.
+static mp_obj_t mp_micropython_parse_arena(mp_obj_t buf_in) {
+    if (buf_in == mp_const_none) {
+        mp_parse_set_arena(NULL, 0);
+    } else {
+        mp_buffer_info_t bufinfo;
+        mp_get_buffer_raise(buf_in, &bufinfo, MP_BUFFER_RW);
+        mp_parse_set_arena(bufinfo.buf, bufinfo.len);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(mp_micropython_parse_arena_obj, mp_micropython_parse_arena);
 
 #endif // MICROPY_PY_MICROPYTHON_MEM_INFO
 
@@ -202,6 +216,7 @@ static const mp_rom_map_elem_t mp_module_micropython_globals_table[] = {
     #endif
     { MP_ROM_QSTR(MP_QSTR_mem_info), MP_ROM_PTR(&mp_micropython_mem_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_qstr_info), MP_ROM_PTR(&mp_micropython_qstr_info_obj) },
+    { MP_ROM_QSTR(MP_QSTR_parse_arena), MP_ROM_PTR(&mp_micropython_parse_arena_obj) },
     #endif
     #if MICROPY_PY_MICROPYTHON_STACK_USE
     { MP_ROM_QSTR(MP_QSTR_stack_use), MP_ROM_PTR(&mp_micropython_stack_use_obj) },

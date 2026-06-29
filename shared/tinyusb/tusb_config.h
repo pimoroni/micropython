@@ -92,6 +92,11 @@
 #endif
 // Set MSC EP buffer size to FatFS block size to avoid partial read/writes (offset arg).
 #define CFG_TUD_MSC_BUFSIZE (MICROPY_FATFS_MAX_SS)
+// fatbridge: deep USB event queue. The fatbridge MSC path interleaves bounded
+// flash commits (IRQs masked tens of ms) with the USB task, and the on-screen UI
+// widens the gaps between service() calls; a deep queue absorbs the dcd events so
+// osal_queue_send() can't overflow (usbd.c TU_ASSERT -> hang at queue_event).
+#define CFG_TUD_TASK_QUEUE_SZ 256
 #endif // CFG_TUD_MSC
 
 // Define built-in interface, string and endpoint numbering based on the above config

@@ -207,7 +207,12 @@ int main(int argc, char **argv) {
         #endif
 
         // Execute _boot.py to set up the filesystem.
-        #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
+        // fatbridge: storage is a single littlefs (the host-facing FAT drive is
+        // synthesised on demand by the fatbridge module), so always use _boot.py
+        // - never _boot_fat.py - even though MICROPY_HW_USB_MSC is enabled.
+        #if MICROPY_FATBRIDGE_STORAGE
+        pyexec_frozen_module("_boot.py", false);
+        #elif MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
         pyexec_frozen_module("_boot_fat.py", false);
         #else
         pyexec_frozen_module("_boot.py", false);

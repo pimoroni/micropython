@@ -46,6 +46,17 @@ static bool ejected = false;
 static bool ready = false;
 static absolute_time_t last_write = 0;
 
+// fatbridge (modules/c/fatbridge): when active, the USB drive is the synthesised
+// FAT16 view of the littlefs storage, not the raw flash block device. These hooks
+// route the MSC callbacks to it. fatbridge_active() is false in a normal build /
+// when fatbridge.msc_mode() isn't running, so the original behaviour is kept.
+bool __attribute__((weak)) fatbridge_active(void) { return false; }
+bool __attribute__((weak)) fatbridge_readonly(void) { return false; }
+int32_t __attribute__((weak)) fatbridge_msc_read(uint32_t lba, uint32_t off, void *buf, uint32_t len) { (void)lba; (void)off; (void)buf; (void)len; return -1; }
+int32_t __attribute__((weak)) fatbridge_msc_write(uint32_t lba, uint32_t off, uint8_t *buf, uint32_t len) { (void)lba; (void)off; (void)buf; (void)len; return -1; }
+void __attribute__((weak)) fatbridge_msc_capacity(uint32_t *bc, uint16_t *bs) { *bc = 0; *bs = 512; }
+void __attribute__((weak)) fatbridge_msc_eject(void) { }
+
 bool rp2_tud_set_msc_ready() {
     if(ready) {
         return false;
@@ -70,6 +81,10 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
+    // With fatbridge driving, media is "ready" exactly while a volume is exposed.
+    if (fatbridge_active()) {
+        return true;
+    }
     if (ejected || !ready) {
         tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
         return false;
@@ -77,9 +92,19 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun) {
     return true;
 }
 
+// Host write-protect: fatbridge serves a read-only volume in read-only mode.
+bool tud_msc_is_writable_cb(uint8_t lun) {
+    (void)lun;
+    return !fatbridge_readonly();
+}
+
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
 // Application update block count and block size
 void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_size) {
+    if (fatbridge_active()) {
+        fatbridge_msc_capacity(block_count, block_size);
+        return;
+    }
     *block_size = BLOCK_SIZE;
     *block_count = BLOCK_COUNT;
 }
@@ -95,7 +120,13 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         } else {
             // unload disk storage
             ejected = true;
-            watchdog_reboot(0, 0, 0);
+            if (fatbridge_active()) {
+                // Don't reboot here: the write cache may still hold uncommitted
+                // data. Signal fatbridge; its msc_mode() loop drains then reboots.
+                fatbridge_msc_eject();
+            } else {
+                watchdog_reboot(0, 0, 0);
+            }
         }
     }
     return true;
@@ -104,6 +135,9 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Callback invoked when received READ10 command.
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
+    if (fatbridge_active()) {
+        return fatbridge_msc_read(lba, offset, buffer, bufsize);
+    }
     uint32_t count = bufsize / BLOCK_SIZE;
     memcpy(buffer, (void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), count * BLOCK_SIZE);
     return count * BLOCK_SIZE;
@@ -113,6 +147,10 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
     last_write = get_absolute_time();
+    if (fatbridge_active()) {
+        // Cache only (no flash here); the msc_mode() loop commits to littlefs.
+        return fatbridge_msc_write(lba, offset, buffer, bufsize);
+    }
     uint32_t count = bufsize / BLOCK_SIZE;
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);

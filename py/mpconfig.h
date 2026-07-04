@@ -538,6 +538,14 @@ typedef uint64_t mp_uint_t;
 // Convenience definition for whether any native emitter is enabled
 #define MICROPY_EMIT_NATIVE (MICROPY_EMIT_X64 || MICROPY_EMIT_X86 || MICROPY_EMIT_THUMB || MICROPY_EMIT_ARM || MICROPY_EMIT_XTENSA || MICROPY_EMIT_XTENSAWIN || MICROPY_EMIT_RV32 || MICROPY_EMIT_NATIVE_DEBUG)
 
+// On a port with no native emitter, accept the @micropython.native decorator and
+// compile the function as ordinary bytecode instead of raising SyntaxError (it
+// has identical Python semantics, just no speedup). Only has an effect when
+// MICROPY_EMIT_NATIVE is disabled. @micropython.viper is left erroring.
+#ifndef MICROPY_NATIVE_NOOP
+#define MICROPY_NATIVE_NOOP (0)
+#endif
+
 // Some architectures cannot read byte-wise from executable memory.  In this case
 // the prelude for a native function (which usually sits after the machine code)
 // must be separated and placed somewhere where it can be read byte-wise.

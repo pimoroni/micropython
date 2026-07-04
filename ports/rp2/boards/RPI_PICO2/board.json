@@ -16,7 +16,8 @@
     "thumbnail": "",
     "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
     "variants": {
-        "RISCV": "RISC-V CPU mode"
+        "RISCV": "RISC-V CPU mode",
+        "FATLFS": "USB Mass Storage editable drive over littlefs"
     },
     "vendor": "Raspberry Pi"
 }

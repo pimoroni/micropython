@@ -71,6 +71,13 @@
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
 
+#if MICROPY_FATLFS
+// fatlfs USB-MSC editable-drive support (ports/rp2/fatlfs_boot.c + fatlfs_rp2.c).
+void fatlfs_boot_check(void);       // decide (once, early) whether to enter MSC mode
+bool fatlfs_msc_requested(void);    // was this boot selected for MSC mode?
+void fatlfs_run_msc_mode(void);     // blocking MSC service loop; reboots on eject
+#endif
+
 // Embed version info in the binary in machine readable form
 bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
 
@@ -126,6 +133,14 @@ int main(int argc, char **argv) {
     ts.tv_sec = timeutils_seconds_since_epoch(2021, 1, 1, 0, 0, 0);
     aon_timer_start(&ts);
     mp_hal_time_ns_set_from_rtc();
+
+    #if MICROPY_FATLFS
+    // Decide whether to boot into the dedicated USB-MSC editable-drive mode
+    // (double-tap reset or a prior fatlfs.reboot_msc()). Non-blocking: on a first
+    // reset this just arms the double-tap window and returns. Needs the system
+    // timer, so it runs after the RTC/timer init above.
+    fatlfs_boot_check();
+    #endif
 
     // Initialise stack extents and GC heap.
     mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
@@ -206,7 +221,11 @@ int main(int argc, char **argv) {
         #endif
 
         // Execute _boot.py to set up the filesystem.
-        #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
+        #if MICROPY_FATLFS
+        // Storage is one unified littlefs; the FAT drive is synthesized on demand
+        // by fatlfs, so always boot _boot.py (never _boot_fat.py) even with MSC.
+        pyexec_frozen_module("_boot.py", false);
+        #elif MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
         pyexec_frozen_module("_boot_fat.py", false);
         #else
         pyexec_frozen_module("_boot.py", false);
@@ -217,6 +236,15 @@ int main(int argc, char **argv) {
 
         #if MICROPY_HW_ENABLE_USBDEV
         mp_usbd_init();
+        #endif
+
+        #if MICROPY_FATLFS
+        // If this boot was selected for USB-MSC mode, hand over to the dedicated
+        // service loop now that littlefs is mounted and USB is up. Never returns
+        // (it warm-reboots back to normal mode when the host ejects).
+        if (fatlfs_msc_requested()) {
+            fatlfs_run_msc_mode();
+        }
         #endif
 
         if (ret & PYEXEC_FORCED_EXIT) {

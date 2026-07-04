@@ -477,6 +477,36 @@ if (MICROPY_PY_NETWORK_WIZNET5K)
     )
 endif()
 
+# fatlfs: expose the board's littlefs storage to a USB host as an editable FAT16
+# drive (opt-in; enabled by a board variant, see boards/RPI_PICO2). Portable core
+# in extmod/fatlfs/, rp2 glue + double-tap MSC boot mode in ports/rp2. Only the
+# module glue registers qstrs and needs scanning; the rest is plain compiled code.
+if(MICROPY_FATLFS)
+    list(APPEND MICROPY_SOURCE_QSTR
+        ${MICROPY_PORT_DIR}/fatlfs_rp2.c
+    )
+    list(APPEND MICROPY_SOURCE_PORT
+        ${MICROPY_PORT_DIR}/fatlfs_rp2.c
+        ${MICROPY_PORT_DIR}/fatlfs_boot.c
+        ${MICROPY_DIR}/extmod/fatlfs/fatlfs.c
+        ${MICROPY_DIR}/extmod/fatlfs/fatlfs_arena.c
+    )
+    target_include_directories(${MICROPY_TARGET} PRIVATE
+        ${MICROPY_DIR}/extmod/fatlfs
+        ${MICROPY_DIR}/lib/littlefs
+    )
+    # MICROPY_FATLFS is also set globally by the variant (so the separate tinyusb
+    # library sees it and builds in the MSC class), but it must be on this target
+    # too: the qstr scan reads COMPILE_DEFINITIONS from the target, not directory
+    # scope, and needs it to collect the MSC-gated qstrs. It implies
+    # MICROPY_HW_USB_MSC via mpconfigport.h. FATLFS_ARENA_ALLOC routes the core's
+    # malloc to the arena.
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        MICROPY_FATLFS=1
+        FATLFS_ARENA_ALLOC=1
+    )
+endif()
+
 list(APPEND MICROPY_SOURCE_EXTMOD
     ${MICROPY_EXTMOD_DIR}/mbedtls/mbedtls_alt.c
 )

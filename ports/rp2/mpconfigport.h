@@ -52,12 +52,23 @@
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
 
+// Expose the board's littlefs storage to a USB host as an editable FAT16 drive
+// (fatlfs). Opt-in via a board variant, which defines MICROPY_FATLFS=1 globally
+// (so this and tusb_config.h both see it); it uses USB-MSC to serve the drive.
+#ifndef MICROPY_FATLFS
+#define MICROPY_FATLFS (0)
+#endif
+
 #if MICROPY_HW_ENABLE_USBDEV
 // Enable USB-CDC serial port
 #ifndef MICROPY_HW_USB_CDC
 #define MICROPY_HW_USB_CDC (1)
 #endif
-// Enable USB Mass Storage with FatFS filesystem.
+// Enable USB Mass Storage with FatFS filesystem. fatlfs implies USB-MSC (it
+// serves the synthesized FAT drive over MSC).
+#if MICROPY_FATLFS && !defined(MICROPY_HW_USB_MSC)
+#define MICROPY_HW_USB_MSC (1)
+#endif
 #ifndef MICROPY_HW_USB_MSC
 #define MICROPY_HW_USB_MSC (0)
 #endif

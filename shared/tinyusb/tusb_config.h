@@ -92,6 +92,13 @@
 #endif
 // Set MSC EP buffer size to FatFS block size to avoid partial read/writes (offset arg).
 #define CFG_TUD_MSC_BUFSIZE (MICROPY_FATFS_MAX_SS)
+// A deep device task event queue. The MSC service loop interleaves bounded flash
+// commits (IRQs masked for milliseconds) with the USB task; a deep queue absorbs
+// the dcd events during those gaps so osal_queue_send() can't overflow (which
+// asserts in usbd.c and hangs). The tinyusb default of 16 is too shallow here.
+#ifndef CFG_TUD_TASK_QUEUE_SZ
+#define CFG_TUD_TASK_QUEUE_SZ (256)
+#endif
 #endif // CFG_TUD_MSC
 
 // Define built-in interface, string and endpoint numbering based on the above config

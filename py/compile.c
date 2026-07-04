@@ -853,6 +853,11 @@ static bool compile_built_in_decorator(compiler_t *comp, size_t name_len, mp_par
         *emit_options = MP_EMIT_OPT_NATIVE_PYTHON;
     } else if (attr == MP_QSTR_viper) {
         *emit_options = MP_EMIT_OPT_VIPER;
+    #elif MICROPY_NATIVE_NOOP
+    } else if (attr == MP_QSTR_native) {
+        // No native code emitter on this port: accept @micropython.native and
+        // compile as ordinary bytecode (identical semantics, just not faster).
+        *emit_options = MP_EMIT_OPT_BYTECODE;
     #endif
         #if MICROPY_EMIT_INLINE_ASM
     #if MICROPY_DYNAMIC_COMPILER

@@ -123,13 +123,21 @@
 
 typedef long mp_off_t;
 
+// Allow a variant (e.g. an out-of-tree board simulator) to override the
+// board / MCU name.
+#ifndef MICROPY_HW_BOARD_NAME
 #define MICROPY_HW_BOARD_NAME "JS"
+#endif
+#ifndef MICROPY_HW_MCU_NAME
 #define MICROPY_HW_MCU_NAME "Emscripten"
+#endif
 
 #define MP_STATE_PORT MP_STATE_VM
 
-#if MICROPY_VFS
+#if MICROPY_VFS && !defined(_GNU_SOURCE)
 // _GNU_SOURCE must be defined to get definitions of DT_xxx symbols from dirent.h.
+// The C++ toolchain (em++) predefines it, so guard to avoid a -Wmacro-redefined
+// error when C++ user-module sources include this header.
 #define _GNU_SOURCE
 #endif
 

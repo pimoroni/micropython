@@ -109,6 +109,18 @@ static mp_obj_t rp2_enable_user_msc() {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_enable_user_msc_obj, rp2_enable_user_msc);
 
+extern bool rp2_tud_set_msc_unready();
+static mp_obj_t rp2_disable_user_msc() {
+    return mp_obj_new_bool(rp2_tud_set_msc_unready());
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_disable_user_msc_obj, rp2_disable_user_msc);
+
+extern bool rp2_tud_msc_ejected();
+static mp_obj_t rp2_msc_ejected() {
+    return mp_obj_new_bool(rp2_tud_msc_ejected());
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_msc_ejected_obj, rp2_msc_ejected);
+
 static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_rp2) },
     { MP_ROM_QSTR(MP_QSTR_Flash),               MP_ROM_PTR(&rp2_flash_type) },
@@ -118,7 +130,9 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_DMATimer),            MP_ROM_PTR(&rp2_dma_timer_type) },
     { MP_ROM_QSTR(MP_QSTR_bootsel_button),      MP_ROM_PTR(&rp2_bootsel_button_obj) },
     { MP_ROM_QSTR(MP_QSTR_enable_msc),          MP_ROM_PTR(&rp2_enable_user_msc_obj) },
+    { MP_ROM_QSTR(MP_QSTR_disable_msc),         MP_ROM_PTR(&rp2_disable_user_msc_obj) },
     { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
+    { MP_ROM_QSTR(MP_QSTR_msc_ejected),         MP_ROM_PTR(&rp2_msc_ejected_obj) },
 
 
     #if MICROPY_PY_NETWORK_CYW43

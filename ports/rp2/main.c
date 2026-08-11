@@ -226,8 +226,9 @@ int main(int argc, char **argv) {
         mod_network_lwip_init();
         #endif
 
-        // Execute _boot.py to set up the filesystem.
-        #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
+        // Execute _boot.py to set up the filesystem. A board exposing a custom
+        // MSC flash region keeps the standard boot and mounts that region itself.
+        #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC && !defined(MICROPY_HW_USB_MSC_FLASH_OFFSET)
         pyexec_frozen_module("_boot_fat.py", false);
         #else
         pyexec_frozen_module("_boot.py", false);

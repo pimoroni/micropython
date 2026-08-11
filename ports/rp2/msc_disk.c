@@ -27,7 +27,6 @@
 #include "mpconfigboard.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
-#include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 
 // This implementation does Not support Flash sector caching.
@@ -54,14 +53,31 @@
 
 static bool ejected = false;
 static bool ready = false;
+static volatile bool eject_event = false;
 static absolute_time_t last_write = 0;
 
 bool rp2_tud_set_msc_ready() {
     if(ready) {
         return false;
     }
+    ejected = false;
+    eject_event = false;
     ready = true;
     return true;
+}
+
+bool rp2_tud_set_msc_unready() {
+    if(!ready) {
+        return false;
+    }
+    ready = false;
+    return true;
+}
+
+// Reports a host eject since the media was last presented. The host owns the
+// decision to eject; what happens next (remount, reboot) is Python's policy.
+bool rp2_tud_msc_ejected() {
+    return eject_event;
 }
 
 bool rp2_tud_is_msc_busy() {
@@ -105,7 +121,8 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
         } else {
             // unload disk storage
             ejected = true;
-            watchdog_reboot(0, 0, 0);
+            ready = false;
+            eject_event = true;
         }
     }
     return true;

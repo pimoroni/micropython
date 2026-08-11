@@ -200,13 +200,27 @@ static void end_critical_flash_section(uint32_t state) {
 
 static mp_obj_t rp2_flash_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     // Parse arguments
-    enum { ARG_start, ARG_len };
+    enum { ARG_start, ARG_len, ARG_msc };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_start, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
         { MP_QSTR_len,   MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+        { MP_QSTR_msc,   MP_ARG_KW_ONLY | MP_ARG_BOOL, {.u_bool = false} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    if (args[ARG_msc].u_bool) {
+        // A block device over the custom MSC flash region, which sits outside
+        // the storage partition. Writes take the same lockout path as storage.
+        #ifdef MICROPY_HW_USB_MSC_FLASH_OFFSET
+        rp2_flash_obj_t *msc_self = mp_obj_malloc(rp2_flash_obj_t, &rp2_flash_type);
+        msc_self->flash_base = MICROPY_HW_USB_MSC_FLASH_OFFSET;
+        msc_self->flash_size = MICROPY_HW_USB_MSC_FLASH_BYTES;
+        return MP_OBJ_FROM_PTR(msc_self);
+        #else
+        mp_raise_ValueError(NULL);
+        #endif
+    }
 
     if (args[ARG_start].u_int == -1 && args[ARG_len].u_int == -1) {
         #ifndef NDEBUG

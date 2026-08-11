@@ -35,9 +35,19 @@
 #error MICROPY_FATFS_MAX_SS must be the same size as FLASH_SECTOR_SIZE
 #endif
 
+// The exposed region defaults to the whole user storage partition. A board can
+// expose a different flash region by defining both of these in mpconfigboard.h,
+// in which case it is also responsible for its own filesystem mounts at boot.
+#ifndef MICROPY_HW_USB_MSC_FLASH_OFFSET
+#define MICROPY_HW_USB_MSC_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - MICROPY_HW_FLASH_STORAGE_BYTES)
+#endif
+#ifndef MICROPY_HW_USB_MSC_FLASH_BYTES
+#define MICROPY_HW_USB_MSC_FLASH_BYTES  (MICROPY_HW_FLASH_STORAGE_BYTES)
+#endif
+
 #define BLOCK_SIZE          (FLASH_SECTOR_SIZE)
-#define BLOCK_COUNT         (MICROPY_HW_FLASH_STORAGE_BYTES / BLOCK_SIZE)
-#define FLASH_BASE_ADDR     (PICO_FLASH_SIZE_BYTES - MICROPY_HW_FLASH_STORAGE_BYTES)
+#define BLOCK_COUNT         (MICROPY_HW_USB_MSC_FLASH_BYTES / BLOCK_SIZE)
+#define FLASH_BASE_ADDR     (MICROPY_HW_USB_MSC_FLASH_OFFSET)
 #define FLASH_MMAP_ADDR     (XIP_BASE + FLASH_BASE_ADDR)
 
 #define WRITE_BUSY_STATUS_TIMEOUT 1000000llu

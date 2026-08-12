@@ -395,6 +395,24 @@ static mp_obj_t fat_vfs_label(mp_obj_t vfs_in, mp_obj_t label_in) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(fat_vfs_label_obj, fat_vfs_label);
 
+#if FF_USE_CHMOD
+// chmod(path, attr, mask): set the FAT attribute bits selected by mask to attr.
+// Bits per ff.h: 0x01 read-only, 0x02 hidden, 0x04 system, 0x20 archive.
+static mp_obj_t fat_vfs_chmod(size_t n_args, const mp_obj_t *args) {
+    mp_obj_fat_vfs_t *self = MP_OBJ_TO_PTR(args[0]);
+    const char *path = mp_obj_str_get_str(args[1]);
+
+    FRESULT res = f_chmod(&self->fatfs, path, mp_obj_get_int(args[2]), mp_obj_get_int(args[3]));
+
+    if (FR_OK != res) {
+        mp_raise_OSError(fresult_to_errno_table[res]);
+    }
+
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(fat_vfs_chmod_obj, 4, 4, fat_vfs_chmod);
+#endif
+
 static mp_obj_t vfs_fat_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     fs_user_mount_t *self = MP_OBJ_TO_PTR(self_in);
 
@@ -444,6 +462,9 @@ static const mp_rom_map_elem_t fat_vfs_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_stat), MP_ROM_PTR(&fat_vfs_stat_obj) },
     { MP_ROM_QSTR(MP_QSTR_statvfs), MP_ROM_PTR(&fat_vfs_statvfs_obj) },
     { MP_ROM_QSTR(MP_QSTR_label), MP_ROM_PTR(&fat_vfs_label_obj) },
+    #if FF_USE_CHMOD
+    { MP_ROM_QSTR(MP_QSTR_chmod), MP_ROM_PTR(&fat_vfs_chmod_obj) },
+    #endif
     { MP_ROM_QSTR(MP_QSTR_mount), MP_ROM_PTR(&vfs_fat_mount_obj) },
     { MP_ROM_QSTR(MP_QSTR_umount), MP_ROM_PTR(&fat_vfs_umount_obj) },
 };

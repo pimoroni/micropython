@@ -85,6 +85,12 @@
 #define MICROPY_HW_ENABLE_PSRAM (0)
 #endif
 
+// Take the PSRAM GC heap extents from the board linker script, for boards that
+// reserve part of PSRAM for their own use.
+#ifndef MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+#define MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS (0)
+#endif
+
 // Memory allocation policies
 #if MICROPY_HW_ENABLE_PSRAM
 #ifdef MICROPY_GC_STACK_ENTRY_TYPE

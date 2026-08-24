@@ -81,6 +81,9 @@ extern uint8_t __GcHeapStart, __GcHeapEnd;
 // Provided by the SDK's PSRAM linker sections: __psram_start__ is ORIGIN(PSRAM)
 // (the PSRAM base) and __psram_end__ is the end of any __in_psram data.
 extern uint8_t __psram_start__, __psram_end__;
+#if MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+extern uint8_t __PsramGcHeapStart, __PsramGcHeapEnd;
+#endif
 #endif
 
 // Embed version info in the binary in machine readable form
@@ -150,9 +153,14 @@ int main(int argc, char **argv) {
     #if MICROPY_HW_ENABLE_PSRAM
     size_t psram_size = psram_get_size(); // 0 if PSRAM was not brought up
     if (psram_size) {
+        #if MICROPY_HW_PSRAM_USE_LINKER_SYMBOLS
+        void *psram_heap_start = &__PsramGcHeapStart;
+        void *psram_heap_end = &__PsramGcHeapEnd;
+        #else
         // Use PSRAM from the end of any __in_psram data up to the top of the chip.
         void *psram_heap_start = &__psram_end__;
         void *psram_heap_end = &__psram_start__ + psram_size;
+        #endif
         #if MICROPY_GC_SPLIT_HEAP
         gc_init(&__GcHeapStart, &__GcHeapEnd);
         gc_add(psram_heap_start, psram_heap_end);

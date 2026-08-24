@@ -56,6 +56,26 @@ static bool ready = false;
 static volatile bool eject_event = false;
 static absolute_time_t last_write = 0;
 
+// Set when the media is re-presented, and reported once as unit attention 28h
+// (not-ready-to-ready change) so the host discards its cached view of the disk.
+static bool attention = false;
+static bool presented_before = false;
+
+// Check the media is present and no unit attention is pending, setting the
+// sense data otherwise.
+static bool media_available(uint8_t lun) {
+    if (ejected || !ready) {
+        tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+        return false;
+    }
+    if (attention) {
+        attention = false;
+        tud_msc_set_sense(lun, SCSI_SENSE_UNIT_ATTENTION, 0x28, 0x00);
+        return false;
+    }
+    return true;
+}
+
 bool rp2_tud_set_msc_ready() {
     if(ready) {
         return false;
@@ -63,6 +83,8 @@ bool rp2_tud_set_msc_ready() {
     ejected = false;
     eject_event = false;
     ready = true;
+    attention = presented_before;
+    presented_before = true;
     return true;
 }
 
@@ -96,11 +118,7 @@ void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16
 // Invoked when received Test Unit Ready command.
 // return true allowing host to read/write this LUN e.g SD card inserted
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
-    if (ejected || !ready) {
-        tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
-        return false;
-    }
-    return true;
+    return media_available(lun);
 }
 
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
@@ -131,6 +149,10 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
 // Callback invoked when received READ10 command.
 // Copy disk's data to buffer (up to bufsize) and return number of copied bytes.
 int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buffer, uint32_t bufsize) {
+    // Refuse while the device holds the media, so the host doesn't cache stale data.
+    if (!media_available(lun)) {
+        return -1;
+    }
     uint32_t count = bufsize / BLOCK_SIZE;
     memcpy(buffer, (void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), count * BLOCK_SIZE);
     return count * BLOCK_SIZE;
@@ -139,6 +161,10 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
+    // Refuse while the device holds the media, which may be modifying the filesystem.
+    if (!media_available(lun)) {
+        return -1;
+    }
     last_write = get_absolute_time();
     uint32_t count = bufsize / BLOCK_SIZE;
     uint32_t ints = save_and_disable_interrupts();

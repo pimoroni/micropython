@@ -89,6 +89,7 @@ static mp_obj_t rp2_bootsel_button(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_bootsel_button_obj, rp2_bootsel_button);
 
+#if MICROPY_HW_USB_MSC
 extern bool rp2_tud_is_msc_busy();
 static mp_obj_t rp2_is_msc_busy() {
     return mp_obj_new_bool(rp2_tud_is_msc_busy());
@@ -108,6 +109,7 @@ static mp_obj_t rp2_enable_user_msc() {
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_enable_user_msc_obj, rp2_enable_user_msc);
+#endif
 
 static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_rp2) },
@@ -117,8 +119,10 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_DMA),                 MP_ROM_PTR(&rp2_dma_type) },
     { MP_ROM_QSTR(MP_QSTR_DMATimer),            MP_ROM_PTR(&rp2_dma_timer_type) },
     { MP_ROM_QSTR(MP_QSTR_bootsel_button),      MP_ROM_PTR(&rp2_bootsel_button_obj) },
+    #if MICROPY_HW_USB_MSC
     { MP_ROM_QSTR(MP_QSTR_enable_msc),          MP_ROM_PTR(&rp2_enable_user_msc_obj) },
     { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
+    #endif
 
 
     #if MICROPY_PY_NETWORK_CYW43

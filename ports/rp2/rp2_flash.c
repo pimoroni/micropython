@@ -267,14 +267,26 @@ static mp_int_t rp2_flash_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo
     }
 }
 
+// The offset is used as an address, so a range outside this object's part of the
+// flash must not reach it. The block number is checked as well, its multiply into
+// an offset being able to wrap.
+static void rp2_flash_check_range(rp2_flash_obj_t *self, mp_int_t block_num, uint32_t offset, size_t len) {
+    if (block_num < 0 || (uint64_t)block_num * BLOCK_SIZE_BYTES > self->flash_size
+        || offset > self->flash_size || len > self->flash_size - offset) {
+        mp_raise_OSError(MP_EIO);
+    }
+}
+
 static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    uint32_t offset = mp_obj_get_int(args[1]) * BLOCK_SIZE_BYTES;
+    mp_int_t block_num = mp_obj_get_int(args[1]);
+    uint32_t offset = block_num * BLOCK_SIZE_BYTES;
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_WRITE);
     if (n_args == 4) {
         offset += mp_obj_get_int(args[3]);
     }
+    rp2_flash_check_range(self, block_num, offset, bufinfo.len);
     memcpy(bufinfo.buf, (void *)(XIP_BASE + self->flash_base + offset), bufinfo.len);
     // mp_event_handle_nowait() is called here to avoid a fail in registering
     // USB at boot time, if the board is busy loading files or scanning the file
@@ -286,10 +298,12 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_flash_readblocks_obj, 3, 4, rp2_f
 
 static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    uint32_t offset = mp_obj_get_int(args[1]) * BLOCK_SIZE_BYTES;
+    mp_int_t block_num = mp_obj_get_int(args[1]);
+    uint32_t offset = block_num * BLOCK_SIZE_BYTES;
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_READ);
     if (n_args == 3) {
+        rp2_flash_check_range(self, block_num, offset, bufinfo.len);
         mp_uint_t atomic_state = begin_critical_flash_section();
         flash_range_erase(self->flash_base + offset, bufinfo.len);
         end_critical_flash_section(atomic_state);
@@ -297,6 +311,7 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
         // TODO check return value
     } else {
         offset += mp_obj_get_int(args[3]);
+        rp2_flash_check_range(self, block_num, offset, bufinfo.len);
     }
 
     // If copying from SRAM, can write direct to flash.

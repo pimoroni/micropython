@@ -29,6 +29,9 @@
 #include "py/obj.h"
 
 extern const mp_obj_type_t rp2_flash_type;
+
+uint32_t begin_critical_flash_section(void);
+void end_critical_flash_section(uint32_t state);
 extern const mp_obj_type_t rp2_pio_type;
 extern const mp_obj_type_t rp2_state_machine_type;
 extern const mp_obj_type_t rp2_dma_type;

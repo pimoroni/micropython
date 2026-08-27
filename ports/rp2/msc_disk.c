@@ -28,6 +28,7 @@
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "pico/stdlib.h"
+#include "modrp2.h"
 
 // This implementation does Not support Flash sector caching.
 #if MICROPY_FATFS_MAX_SS != FLASH_SECTOR_SIZE
@@ -167,10 +168,13 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
     }
     last_write = get_absolute_time();
     uint32_t count = bufsize / BLOCK_SIZE;
-    uint32_t ints = save_and_disable_interrupts();
+    // The port's own section, not just the interrupts: it also suspends the other
+    // core, commits dirty PSRAM writes before the XIP cache is invalidated, and puts
+    // the flash timing back afterwards, all of which a write from here needs too
+    uint32_t state = begin_critical_flash_section();
     flash_range_erase(FLASH_BASE_ADDR + lba * BLOCK_SIZE, count * BLOCK_SIZE);
     flash_range_program(FLASH_BASE_ADDR + lba * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
-    restore_interrupts(ints);
+    end_critical_flash_section(state);
     return count * BLOCK_SIZE;
 }
 

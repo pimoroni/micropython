@@ -199,7 +199,7 @@ static void resume_xip_dma(void) {
 
 // Flash erase and write must run with interrupts disabled and the other core suspended,
 // because the XIP bit gets disabled.
-static uint32_t begin_critical_flash_section(void) {
+uint32_t begin_critical_flash_section(void) {
     if (use_multicore_lockout()) {
         multicore_lockout_start_blocking();
     }
@@ -220,7 +220,7 @@ static uint32_t begin_critical_flash_section(void) {
     return state;
 }
 
-static void end_critical_flash_section(uint32_t state) {
+void end_critical_flash_section(uint32_t state) {
     // The ROM function to program flash will have reset the flash timing to
     // defaults. (PSRAM timing is restored automatically by the SDK's flash
     // routines via the QMI CS1 setup callback registered by psram_reinitialize.)

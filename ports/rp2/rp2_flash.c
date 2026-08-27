@@ -31,6 +31,7 @@
 #include "py/mperrno.h"
 #include "extmod/vfs.h"
 #include "modrp2.h"
+#include "hardware/dma.h"
 #include "hardware/flash.h"
 #include "pico/binary_info.h"
 #ifdef PICO_RP2350
@@ -165,6 +166,37 @@ static void __no_inline_not_in_flash_func(rp2_flash_set_timing_internal)(int clo
     #endif
 }
 
+// Flash and PSRAM share the QMI, so a DMA channel reading either through the XIP
+// window while the flash is mid-command errors its transfer and can leave the QMI
+// never reporting completion, hanging the operation. Those channels pause for it.
+static uint32_t paused_dma_channels;
+
+static void pause_xip_dma(void) {
+    paused_dma_channels = 0;
+    for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
+        io_rw_32 *ctrl = &dma_hw->ch[i].ctrl_trig;
+        if (!(*ctrl & DMA_CH0_CTRL_TRIG_EN_BITS)) {
+            continue;
+        }
+        uint32_t read_addr = dma_hw->ch[i].read_addr;
+        uint32_t write_addr = dma_hw->ch[i].write_addr;
+        if ((read_addr >= XIP_BASE && read_addr < SRAM_BASE)
+            || (write_addr >= XIP_BASE && write_addr < SRAM_BASE)) {
+            hw_clear_bits(ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+            paused_dma_channels |= 1u << i;
+        }
+    }
+}
+
+static void resume_xip_dma(void) {
+    for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
+        if (paused_dma_channels & (1u << i)) {
+            hw_set_bits(&dma_hw->ch[i].ctrl_trig, DMA_CH0_CTRL_TRIG_EN_BITS);
+        }
+    }
+    paused_dma_channels = 0;
+}
+
 // Flash erase and write must run with interrupts disabled and the other core suspended,
 // because the XIP bit gets disabled.
 static uint32_t begin_critical_flash_section(void) {
@@ -172,6 +204,7 @@ static uint32_t begin_critical_flash_section(void) {
         multicore_lockout_start_blocking();
     }
     uint32_t state = save_and_disable_interrupts();
+    pause_xip_dma();
 
     #if MICROPY_HW_ENABLE_PSRAM
     // We're about to invalidate the XIP cache, clean it first to commit any dirty writes to PSRAM
@@ -192,6 +225,7 @@ static void end_critical_flash_section(uint32_t state) {
     // defaults. (PSRAM timing is restored automatically by the SDK's flash
     // routines via the QMI CS1 setup callback registered by psram_reinitialize.)
     rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
+    resume_xip_dma();
     restore_interrupts(state);
     if (use_multicore_lockout()) {
         multicore_lockout_end_blocking();

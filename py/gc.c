@@ -30,6 +30,7 @@
 #include <string.h>
 
 #include "py/gc.h"
+#include "py/parse.h"
 #include "py/runtime.h"
 
 #if MICROPY_DEBUG_VALGRIND
@@ -543,6 +544,13 @@ void gc_collect_start(void) {
     // Trace root pointers from the Python stack.
     ptrs = (void **)(void *)MP_STATE_THREAD(pystack_start);
     gc_collect_root(ptrs, (MP_STATE_THREAD(pystack_cur) - MP_STATE_THREAD(pystack_start)) / sizeof(void *));
+    #endif
+
+    #if MICROPY_ENABLE_COMPILER
+    // A parse tree in the parser's scratch arena is outside the heap, so the
+    // collector would otherwise miss the const objects it points at. Done here
+    // rather than per-port so no port can omit it.
+    mp_parse_gc_scan_arena();
     #endif
 }
 

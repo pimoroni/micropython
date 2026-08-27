@@ -118,4 +118,8 @@ void mp_parse_tree_clear(mp_parse_tree_t *tree);
 // by the parser. Single parse at a time (no nesting/threads).
 void mp_parse_set_arena(void *buf, size_t len);
 
+// Scan the arena's live prefix as a GC root region. Called from
+// gc_collect_start(); a no-op when the arena is unset or holds no live tree.
+void mp_parse_gc_scan_arena(void);
+
 #endif // MICROPY_INCLUDED_PY_PARSE_H

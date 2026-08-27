@@ -34,6 +34,7 @@
 #include "py/lexer.h"
 #include "py/parse.h"
 #include "py/parsenum.h"
+#include "py/gc.h"
 #include "py/runtime.h"
 #include "py/objint.h"
 #include "py/objstr.h"
@@ -261,6 +262,19 @@ void mp_parse_set_arena(void *buf, size_t len) {
     parse_arena_used = 0;
 }
 
+// RULE_const_object nodes hold an mp_obj_t whose only reference, until the
+// compiler emits it into the const table, is the node itself. The arena is not
+// GC memory, so the collector cannot see those pointers: scan the used prefix as
+// a root region for as long as a tree lives there. parse_arena_used is reset at
+// the start of each parse and by mp_parse_tree_clear(), so this is a no-op
+// between parses and never scans the buffer while its owner is using it for
+// something else.
+void mp_parse_gc_scan_arena(void) {
+    if (parse_arena_base != NULL && parse_arena_used != 0) {
+        gc_collect_root((void **)parse_arena_base, parse_arena_used / sizeof(void *));
+    }
+}
+
 static void push_result_rule(parser_t *parser, size_t src_line, uint8_t rule_id, size_t num_args);
 
 static const uint16_t *get_rule_arg(uint8_t r_id) {
@@ -322,9 +336,17 @@ static void *parser_alloc(parser_t *parser, size_t num_bytes) {
 
 #if MICROPY_COMP_CONST_TUPLE
 static void parser_free_parse_node_struct(parser_t *parser, mp_parse_node_struct_t *pns) {
+    size_t num_bytes = sizeof(mp_parse_node_struct_t) + sizeof(mp_parse_node_t) * MP_PARSE_NODE_STRUCT_NUM_NODES(pns);
+    // Arena allocations are bump-allocated, so roll the offset back when the node
+    // being freed is the most recent one. cur_chunk stays NULL while everything
+    // fits in the arena, so the chunk path below must not assume it exists.
+    if (parser->using_arena
+        && (byte *)pns + num_bytes == parse_arena_base + parse_arena_used) {
+        parse_arena_used -= num_bytes;
+        return;
+    }
     mp_parse_chunk_t *chunk = parser->cur_chunk;
-    if (chunk->data <= (byte *)pns && (byte *)pns < chunk->data + chunk->union_.used) {
-        size_t num_bytes = sizeof(mp_parse_node_struct_t) + sizeof(mp_parse_node_t) * MP_PARSE_NODE_STRUCT_NUM_NODES(pns);
+    if (chunk != NULL && chunk->data <= (byte *)pns && (byte *)pns < chunk->data + chunk->union_.used) {
         chunk->union_.used -= num_bytes;
     }
 }
@@ -1438,6 +1460,7 @@ void mp_parse_tree_clear(mp_parse_tree_t *tree) {
         chunk = next;
     }
     tree->chunk = NULL; // Avoid dangling pointer that may live on stack
+    parse_arena_used = 0;
 }
 
 #endif // MICROPY_ENABLE_COMPILER

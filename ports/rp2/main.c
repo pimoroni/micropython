@@ -139,9 +139,11 @@ int main(int argc, char **argv) {
     #endif
 
     // Start and initialise the RTC
-    struct timespec ts = { 0, 0 };
-    ts.tv_sec = timeutils_seconds_since_epoch(2021, 1, 1, 0, 0, 0);
-    aon_timer_start(&ts);
+    if (!aon_timer_is_running()) {
+        struct timespec ts = { 0, 0 };
+        ts.tv_sec = timeutils_seconds_since_epoch(2021, 1, 1, 0, 0, 0);
+        aon_timer_start(&ts);
+    }
     mp_hal_time_ns_set_from_rtc();
 
     // Initialise stack extents and GC heap.

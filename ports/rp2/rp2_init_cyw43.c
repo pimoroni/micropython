@@ -32,6 +32,7 @@
 #if MICROPY_PY_NETWORK_CYW43
 
 #include "lib/cyw43-driver/src/cyw43.h"
+#include "hardware/clocks.h"
 #include "pico/unique_id.h"
 
 // Provided by mpnetworkport.c.
@@ -46,9 +47,23 @@ int cyw43_set_pins_wl(uint pins[CYW43_PIN_INDEX_WL_COUNT]);
 #if CYW43_PIO_CLOCK_DIV_DYNAMIC
 // Provided by the pico-sdk (cyw43_bus_pio_spi.c).
 void cyw43_set_pio_clkdiv_int_frac8(uint32_t clock_div_int, uint8_t clock_div_frac8);
+
+// The divisor the bus starts on, from pico/cyw43_driver.h, which cannot be included
+// here because the qstr scan preprocesses this file without the SDK include paths.
+#ifndef CYW43_PIO_CLOCK_DIV_INT
+#define CYW43_PIO_CLOCK_DIV_INT 2
+#endif
+#ifndef CYW43_PIO_CLOCK_DIV_FRAC8
+#define CYW43_PIO_CLOCK_DIV_FRAC8 0
+#endif
 #endif
 
 static bool cyw43_init_done;
+
+#if CYW43_PIO_CLOCK_DIV_DYNAMIC
+// The system clock the bus was last started on, which sets its rate with the divisor.
+static uint32_t rp2_cyw43_bus_clk_sys;
+#endif
 
 // Bring the cyw43 chip up.  This is deferred until first use (constructing a
 // WLAN, BLE or external Pin object, or a cyw43.CYW43) so that the bus pins are
@@ -61,6 +76,9 @@ static void rp2_cyw43_start(void) {
     cyw43_irq_init();
     cyw43_post_poll_hook(); // enable the irq
     cyw43_init_done = true;
+    #if CYW43_PIO_CLOCK_DIV_DYNAMIC
+    rp2_cyw43_bus_clk_sys = clock_get_hz(clk_sys);
+    #endif
 
     // The MAC isn't loaded from OTP yet, so use the unique id to generate the
     // default AP ssid.
@@ -116,20 +134,7 @@ extern const mp_obj_type_t rp2_cyw43_type;
 
 static const rp2_cyw43_obj_t rp2_cyw43_obj = { { &rp2_cyw43_type } };
 
-#if CYW43_PIN_WL_DYNAMIC
-// Return the gpio for a pin argument, falling back to another argument and
-// finally to NUM_BANK0_GPIOS which means "leave the current pin unchanged".
-static uint rp2_cyw43_arg_pin(const mp_arg_val_t *arg, const mp_arg_val_t *fallback) {
-    if (arg->u_obj != MP_OBJ_NULL) {
-        return mp_hal_get_pin_obj(arg->u_obj);
-    }
-    if (fallback != NULL && fallback->u_obj != MP_OBJ_NULL) {
-        return mp_hal_get_pin_obj(fallback->u_obj);
-    }
-    return NUM_BANK0_GPIOS;
-}
-
-// Tear the chip down so that its bus pins can be reconfigured.  A bringup that
+// Tear the chip down so that its bus can be reconfigured.  A bringup that
 // failed (wrong pins, or no module attached) leaves the PIO bus claimed but
 // does not satisfy cyw43_deinit() (which only runs once the chip is fully up),
 // so also release the low-level bus directly.  Both are safe no-ops otherwise.
@@ -141,6 +146,19 @@ static void rp2_cyw43_stop(void) {
     cyw43_deinit(&cyw43_state);
     cyw43_ll_deinit(&cyw43_state.cyw43_ll);
     cyw43_init_done = false;
+}
+
+#if CYW43_PIN_WL_DYNAMIC
+// Return the gpio for a pin argument, falling back to another argument and
+// finally to NUM_BANK0_GPIOS which means "leave the current pin unchanged".
+static uint rp2_cyw43_arg_pin(const mp_arg_val_t *arg, const mp_arg_val_t *fallback) {
+    if (arg->u_obj != MP_OBJ_NULL) {
+        return mp_hal_get_pin_obj(arg->u_obj);
+    }
+    if (fallback != NULL && fallback->u_obj != MP_OBJ_NULL) {
+        return mp_hal_get_pin_obj(fallback->u_obj);
+    }
+    return NUM_BANK0_GPIOS;
 }
 
 // Apply a set of bus pins, filling unspecified entries (NUM_BANK0_GPIOS) from
@@ -164,6 +182,32 @@ static void rp2_cyw43_configure_pins(uint pins[CYW43_PIN_INDEX_WL_COUNT]) {
     }
 }
 #endif // CYW43_PIN_WL_DYNAMIC
+
+#if CYW43_PIO_CLOCK_DIV_DYNAMIC
+// The divisor in use on the bus.  The pico-sdk setter only stores its arguments,
+// which cyw43_spi_init() reads, so what was last applied has to be tracked here.
+static uint32_t rp2_cyw43_div_int = CYW43_PIO_CLOCK_DIV_INT;
+static uint8_t rp2_cyw43_div_frac8 = CYW43_PIO_CLOCK_DIV_FRAC8;
+
+// Apply a bus clock divisor, zero meaning keep the current one.  The rate is
+// clk_sys / (2 * div_int) and is fixed when the bus starts, so a change to either
+// term needs the chip stopped for the restart to pick it up.
+static void rp2_cyw43_configure_clkdiv(uint32_t div_int, uint8_t div_frac8) {
+    if (div_int == 0) {
+        div_int = rp2_cyw43_div_int;
+        div_frac8 = rp2_cyw43_div_frac8;
+    }
+    // An unchanged divisor does not mean an unchanged rate.
+    if (div_int == rp2_cyw43_div_int && div_frac8 == rp2_cyw43_div_frac8
+        && clock_get_hz(clk_sys) == rp2_cyw43_bus_clk_sys) {
+        return;
+    }
+    rp2_cyw43_stop();
+    cyw43_set_pio_clkdiv_int_frac8(div_int, div_frac8);
+    rp2_cyw43_div_int = div_int;
+    rp2_cyw43_div_frac8 = div_frac8;
+}
+#endif // CYW43_PIO_CLOCK_DIV_DYNAMIC
 
 static mp_obj_t rp2_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum {
@@ -206,9 +250,9 @@ static mp_obj_t rp2_cyw43_make_new(const mp_obj_type_t *type, size_t n_args, siz
     #endif
 
     #if CYW43_PIO_CLOCK_DIV_DYNAMIC
-    if (args[ARG_div_int].u_int > 0) {
-        cyw43_set_pio_clkdiv_int_frac8(args[ARG_div_int].u_int, (uint8_t)args[ARG_div_frac].u_int);
-    }
+    // Called whether or not a divisor was given, since the system clock may have
+    // moved since the bus started even when the divisor has not.
+    rp2_cyw43_configure_clkdiv(args[ARG_div_int].u_int, (uint8_t)args[ARG_div_frac].u_int);
     #endif
 
     // Bring the chip up (if not already) using the configured pins and clock.

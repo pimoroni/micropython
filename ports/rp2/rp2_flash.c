@@ -169,12 +169,14 @@ static void __no_inline_not_in_flash_func(rp2_flash_set_timing_internal)(int clo
 // Flash and PSRAM share the QMI, so a DMA channel reading either through the XIP
 // window while the flash is mid-command errors its transfer and can leave the QMI
 // never reporting completion, hanging the operation. Those channels pause for it.
+// Through AL1_CTRL, the alias that does not trigger: a write to CTRL_TRIG restarts an
+// idle channel, which then runs a whole transfer on from where its addresses stopped.
 static uint32_t paused_dma_channels;
 
 static void pause_xip_dma(void) {
     paused_dma_channels = 0;
     for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
-        io_rw_32 *ctrl = &dma_hw->ch[i].ctrl_trig;
+        io_rw_32 *ctrl = &dma_hw->ch[i].al1_ctrl;
         if (!(*ctrl & DMA_CH0_CTRL_TRIG_EN_BITS)) {
             continue;
         }
@@ -191,7 +193,7 @@ static void pause_xip_dma(void) {
 static void resume_xip_dma(void) {
     for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
         if (paused_dma_channels & (1u << i)) {
-            hw_set_bits(&dma_hw->ch[i].ctrl_trig, DMA_CH0_CTRL_TRIG_EN_BITS);
+            hw_set_bits(&dma_hw->ch[i].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
         }
     }
     paused_dma_channels = 0;

@@ -47,6 +47,15 @@
 #define MICROPY_HW_USB_CDC_INTERFACE_STRING "Board CDC"
 #endif
 
+// An auxiliary CDC interface that is not attached to stdio.
+#ifndef MICROPY_HW_USB_CDC_AUX
+#define MICROPY_HW_USB_CDC_AUX (0)
+#endif
+
+#ifndef MICROPY_HW_USB_CDC_AUX_INTERFACE_STRING
+#define MICROPY_HW_USB_CDC_AUX_INTERFACE_STRING "Board CDC Aux"
+#endif
+
 #ifndef MICROPY_HW_USB_MSC_INQUIRY_VENDOR_STRING
 #define MICROPY_HW_USB_MSC_INQUIRY_VENDOR_STRING "MicroPy"
 #endif
@@ -64,7 +73,7 @@
 #endif
 
 #if MICROPY_HW_USB_CDC
-#define CFG_TUD_CDC             (1)
+#define CFG_TUD_CDC             (1 + MICROPY_HW_USB_CDC_AUX)
 #else
 #define CFG_TUD_CDC             (0)
 #endif
@@ -137,6 +146,9 @@ enum _USBD_STR {
     #if CFG_TUD_CDC
     USBD_STR_CDC,
     #endif
+    #if CFG_TUD_CDC > 1
+    USBD_STR_CDC_AUX,
+    #endif
     #if CFG_TUD_MSC
     USBD_STR_MSC,
     #endif
@@ -160,6 +172,10 @@ enum _USBD_ITF {
     USBD_ITF_CDC,
     USBD_ITF_CDC_I2,
     #endif // CFG_TUD_CDC
+    #if CFG_TUD_CDC > 1
+    USBD_ITF_CDC_AUX,
+    USBD_ITF_CDC_AUX_I2,
+    #endif
     #if CFG_TUD_MSC
     USBD_ITF_MSC,
     #endif // CFG_TUD_MSC
@@ -175,6 +191,10 @@ enum _USBD_EP {
     USBD_CDC_EP_CMD,
     USBD_CDC_EP_IN,
     #endif // CFG_TUD_CDC
+    #if CFG_TUD_CDC > 1
+    USBD_CDC_AUX_EP_CMD,
+    USBD_CDC_AUX_EP_IN,
+    #endif
     #if CFG_TUD_MSC
     USBD_MSC_EP_IN,
     #endif // CFG_TUD_MSC
@@ -188,6 +208,9 @@ enum _USBD_EP {
 #if CFG_TUD_CDC
 #define USBD_CDC_EP_OUT  (USBD_CDC_EP_IN & ~TUSB_DIR_IN_MASK)
 #endif
+#if CFG_TUD_CDC > 1
+#define USBD_CDC_AUX_EP_OUT  (USBD_CDC_AUX_EP_IN & ~TUSB_DIR_IN_MASK)
+#endif
 #if CFG_TUD_MSC
 #define USBD_MSC_EP_OUT  (USBD_MSC_EP_IN & ~TUSB_DIR_IN_MASK)
 #endif
@@ -199,13 +222,13 @@ enum _USBD_EP {
 /* Limits of builtin USB interfaces, endpoints, strings */
 // Number of interfaces used by all enabled classes
 #define USBD_ITF_BUILTIN_MAX ( \
-    (CFG_TUD_CDC ? 2 : 0) + \
+    (CFG_TUD_CDC * 2) + \
     (CFG_TUD_MSC ? 1 : 0) + \
     (CFG_TUD_NCM ? 2 : 0))
 
 // 1 plus the number of interfaces used by all enabled classes
 #define USBD_EP_BUILTIN_MAX ( \
-    (CFG_TUD_CDC ? 2 : 0) + \
+    (CFG_TUD_CDC * 2) + \
     (CFG_TUD_MSC ? 1 : 0) + \
     (CFG_TUD_NCM ? 2 : 0) + \
     1)

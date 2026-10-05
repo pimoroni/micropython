@@ -73,7 +73,15 @@ uintptr_t mp_usbd_cdc_poll_interfaces(uintptr_t poll_flags) {
     return ret;
 }
 
+MP_WEAK void mp_usbd_cdc_aux_rx_cb(uint8_t itf) {
+}
+
 void MICROPY_WRAP_TUD_CDC_RX_CB(tud_cdc_rx_cb)(uint8_t itf) {
+    if (itf != 0) {
+        // Only interface 0 feeds stdin, others are handled by the board.
+        mp_usbd_cdc_aux_rx_cb(itf);
+        return;
+    }
     // consume pending USB data immediately to free usb buffer and keep the endpoint from stalling.
     // in case the ringbuffer is full, mark the CDC interface that need attention later on for polling
     cdc_itf_pending &= ~(1 << itf);

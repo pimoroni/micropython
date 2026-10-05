@@ -194,6 +194,12 @@ static mp_obj_t frame_f_locals(mp_obj_t self_in) {
                 }
             }
 
+            if (mp_obj_is_type(state_obj, &mp_type_cell)) {
+                state_obj = mp_obj_cell_get(state_obj);
+                if (state_obj == MP_OBJ_NULL) {
+                    continue;
+                }
+            }
             mp_obj_dict_store(locals_dict, MP_OBJ_NEW_QSTR(var_name_qstr), state_obj);
         }
         #endif

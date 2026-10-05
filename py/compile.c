@@ -3486,7 +3486,7 @@ static void scope_compute_things(scope_t *scope) {
         // Populate with variable names from id_info
         for (int i = 0; i < scope->id_info_len; i++) {
             id_info_t *id = &scope->id_info[i];
-            if ((id->kind == ID_INFO_KIND_LOCAL || id->kind == ID_INFO_KIND_CELL) &&
+            if ((id->kind == ID_INFO_KIND_LOCAL || id->kind == ID_INFO_KIND_CELL || id->kind == ID_INFO_KIND_FREE) &&
                 id->local_num < scope->num_locals) {
                 names[id->local_num] = id->qst;
             }

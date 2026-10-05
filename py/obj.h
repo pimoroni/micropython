@@ -1103,6 +1103,8 @@ typedef struct _mp_obj_cell_t {
     mp_obj_t obj;
 } mp_obj_cell_t;
 
+extern const mp_obj_type_t mp_type_cell;
+
 static inline mp_obj_t mp_obj_cell_get(mp_obj_t self_in) {
     mp_obj_cell_t *self = (mp_obj_cell_t *)MP_OBJ_TO_PTR(self_in);
     return self->obj;

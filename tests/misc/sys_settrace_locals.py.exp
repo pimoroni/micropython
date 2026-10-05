@@ -14,12 +14,12 @@ test_nested_function_locals:
   Inner function events: 4
   outer_func locals: ['inner_func', 'outer_var', 'result', 'x']
     inner_func: closure
-    outer_var: 
+    outer_var: int
     result: int
     x: int
-  inner_func locals: ['inner_var', 'local_00', 'y']
+  inner_func locals: ['inner_var', 'outer_var', 'y']
     inner_var: int
-    local_00: 
+    outer_var: int
     y: int
 
 test_loop_locals:

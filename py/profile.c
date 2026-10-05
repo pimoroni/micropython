@@ -109,8 +109,15 @@ static void frame_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
     switch (attr) {
         case MP_QSTR_f_back:
             dest[0] = mp_const_none;
-            if (o->code_state->prev_state && o->code_state->prev_state->frame) {
-                dest[0] = MP_OBJ_FROM_PTR(o->code_state->prev_state->frame);
+            if (o->code_state->prev_state) {
+                mp_code_state_t *prev_state = o->code_state->prev_state;
+                if (prev_state->frame == NULL) {
+                    // Frames entered before tracing started have no frame object yet.
+                    prev_state->frame = MP_OBJ_TO_PTR(mp_obj_new_frame(prev_state));
+                }
+                if (prev_state->frame != NULL) {
+                    dest[0] = MP_OBJ_FROM_PTR(prev_state->frame);
+                }
             }
             break;
         case MP_QSTR_f_code:
@@ -270,7 +277,16 @@ static mp_obj_t mp_prof_callback_invoke(mp_obj_t callback, prof_callback_args_t 
     mp_prof_is_executing = true;
 
     mp_obj_t a[3] = {MP_OBJ_FROM_PTR(args->frame), args->event, args->arg};
-    mp_obj_t top = mp_call_function_n_kw(callback, 3, 0, a);
+    mp_obj_t top;
+    nlr_buf_t nlr;
+    if (nlr_push(&nlr) == 0) {
+        top = mp_call_function_n_kw(callback, 3, 0, a);
+        nlr_pop();
+    } else {
+        // Clear the flag so tracing resumes after an exception escapes the callback.
+        mp_prof_is_executing = false;
+        nlr_jump(nlr.ret_val);
+    }
 
     mp_prof_is_executing = false;
 
@@ -318,6 +334,11 @@ mp_obj_t mp_prof_get_frame(size_t depth) {
 
 mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state) {
     assert(!mp_prof_is_executing);
+
+    if (!prof_trace_cb) {
+        // Avoid allocating a frame for every call when not tracing.
+        return MP_OBJ_NULL;
+    }
 
     mp_obj_frame_t *frame = MP_OBJ_TO_PTR(mp_obj_new_frame(code_state));
     if (frame == NULL) {

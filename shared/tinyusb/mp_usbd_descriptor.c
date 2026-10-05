@@ -77,6 +77,10 @@ const uint8_t mp_usbd_builtin_desc_cfg[MP_USBD_BUILTIN_DESC_CFG_LEN] = {
     TUD_CDC_DESCRIPTOR(USBD_ITF_CDC, USBD_STR_CDC, USBD_CDC_EP_CMD,
         USBD_CDC_CMD_MAX_SIZE, USBD_CDC_EP_OUT, USBD_CDC_EP_IN, USBD_CDC_IN_OUT_MAX_SIZE),
     #endif
+    #if CFG_TUD_CDC > 1
+    TUD_CDC_DESCRIPTOR(USBD_ITF_CDC_AUX, USBD_STR_CDC_AUX, USBD_CDC_AUX_EP_CMD,
+        USBD_CDC_CMD_MAX_SIZE, USBD_CDC_AUX_EP_OUT, USBD_CDC_AUX_EP_IN, USBD_CDC_IN_OUT_MAX_SIZE),
+    #endif
     #if CFG_TUD_MSC
     TUD_MSC_DESCRIPTOR(USBD_ITF_MSC, USBD_STR_MSC, USBD_MSC_EP_OUT, USBD_MSC_EP_IN, USBD_MSC_IN_OUT_MAX_SIZE),
     #endif
@@ -128,6 +132,11 @@ const uint16_t *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
             #if CFG_TUD_CDC
             case USBD_STR_CDC:
                 desc_str = MICROPY_HW_USB_CDC_INTERFACE_STRING;
+                break;
+            #endif
+            #if CFG_TUD_CDC > 1
+            case USBD_STR_CDC_AUX:
+                desc_str = MICROPY_HW_USB_CDC_AUX_INTERFACE_STRING;
                 break;
             #endif
             #if CFG_TUD_MSC

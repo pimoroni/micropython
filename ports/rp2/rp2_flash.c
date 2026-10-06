@@ -43,7 +43,8 @@
 
 #define BLOCK_SIZE_BYTES (FLASH_SECTOR_SIZE)
 
-// Size of buffer for flash writes from PSRAM, since they are mutually exclusive
+// Size of buffer for flash writes from PSRAM or flash, since neither can be read while
+// flash is being programmed
 #define COPY_BUFFER_SIZE_BYTES (FLASH_PAGE_SIZE)
 
 static_assert(MICROPY_HW_ROMFS_BYTES % 4096 == 0, "ROMFS size must be a multiple of 4K");
@@ -351,12 +352,10 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     }
 
     // If copying from SRAM, can write direct to flash.
-    // If copying from PSRAM/flash, use an SRAM buffer and write in chunks.
-    #if MICROPY_HW_ENABLE_PSRAM
+    // If copying from PSRAM/flash, use an SRAM buffer and write in chunks. A source in
+    // flash, such as a frozen string FatFs writes a whole sector of, can be met on any
+    // board, so the check is not confined to those with PSRAM.
     bool write_direct = (uintptr_t)bufinfo.buf >= SRAM_BASE;
-    #else
-    bool write_direct = true;
-    #endif
 
     if (write_direct) {
         // If copying from SRAM, write direct
@@ -364,9 +363,7 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
         flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
         end_critical_flash_section(atomic_state);
         mp_event_handle_nowait();
-    }
-    #if MICROPY_HW_ENABLE_PSRAM
-    else {
+    } else {
         size_t bytes_left = bufinfo.len;
         size_t bytes_offset = 0;
         static uint8_t copy_buffer[COPY_BUFFER_SIZE_BYTES] = {0};
@@ -384,7 +381,6 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
             mp_event_handle_nowait();
         }
     }
-    #endif
 
     // TODO check return value
     return mp_const_none;

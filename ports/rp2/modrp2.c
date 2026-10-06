@@ -123,6 +123,15 @@ static mp_obj_t rp2_msc_ejected() {
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_msc_ejected_obj, rp2_msc_ejected);
 #endif // MICROPY_HW_USB_MSC
 
+#if MICROPY_HW_ENABLE_USBDEV
+// Whether the host has finished enumerating the device and configured it. False from a bus
+// reset until the host's SET_CONFIGURATION, which is the window enumeration's deadlines run in.
+static mp_obj_t rp2_usb_mounted(void) {
+    return mp_obj_new_bool(tud_mounted());
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_usb_mounted_obj, rp2_usb_mounted);
+#endif
+
 static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),            MP_ROM_QSTR(MP_QSTR_rp2) },
     { MP_ROM_QSTR(MP_QSTR_Flash),               MP_ROM_PTR(&rp2_flash_type) },
@@ -136,6 +145,9 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_disable_msc),         MP_ROM_PTR(&rp2_disable_user_msc_obj) },
     { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
     { MP_ROM_QSTR(MP_QSTR_msc_ejected),         MP_ROM_PTR(&rp2_msc_ejected_obj) },
+    #endif
+    #if MICROPY_HW_ENABLE_USBDEV
+    { MP_ROM_QSTR(MP_QSTR_usb_mounted),         MP_ROM_PTR(&rp2_usb_mounted_obj) },
     #endif
 
 

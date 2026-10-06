@@ -269,6 +269,9 @@ static void gc_setup_area(mp_state_mem_area_t *area, void *start, void *end) {
         );
 
     area->gc_last_free_atb_index = 0;
+    #if MICROPY_GC_LAST_FREE_RUN_INDEX
+    area->gc_last_free_run_atb_index = 0;
+    #endif
     area->gc_last_used_block = 0;
 
     #if MICROPY_GC_SPLIT_HEAP
@@ -692,6 +695,9 @@ void gc_collect_end(void) {
     #endif
     for (mp_state_mem_area_t *area = &MP_STATE_MEM(area); area != NULL; area = NEXT_AREA(area)) {
         area->gc_last_free_atb_index = 0;
+        #if MICROPY_GC_LAST_FREE_RUN_INDEX
+        area->gc_last_free_run_atb_index = 0;
+        #endif
     }
     MP_STATE_THREAD(gc_lock_depth) &= ~GC_COLLECT_FLAG;
     GC_EXIT();
@@ -1065,6 +1071,9 @@ void *gc_alloc(size_t n_bytes, unsigned int alloc_flags) {
     size_t end_block;
     size_t start_block;
     size_t n_free;
+    #if MICROPY_GC_LAST_FREE_RUN_INDEX
+    bool passed_run = false; // Whether the search passed a run of two or more free blocks
+    #endif
     int collected = !MP_STATE_MEM(gc_auto_collect_enabled);
     #if MICROPY_GC_SPLIT_HEAP_AUTO
     bool added = false;
@@ -1092,6 +1101,13 @@ void *gc_alloc(size_t n_bytes, unsigned int alloc_flags) {
             n_free = 0;
             size_t bytelen = area->gc_alloc_table_byte_len;
             i = area->gc_last_free_atb_index;
+            #if MICROPY_GC_LAST_FREE_RUN_INDEX
+            passed_run = false;
+            // A multi-block run cannot start before the last free run index, so that is the later start
+            if (n_blocks > 1 && area->gc_last_free_run_atb_index > i) {
+                i = area->gc_last_free_run_atb_index;
+            }
+            #endif
             while (i < bytelen) {
                 MICROPY_GC_HOOK_LOOP(i);
                 // When not mid-run and word-aligned, skip whole fully-occupied
@@ -1114,10 +1130,17 @@ void *gc_alloc(size_t n_bytes, unsigned int alloc_flags) {
                 }
                 byte a = area->gc_alloc_table_start[i];
                 // *FORMAT-OFF*
+                #if MICROPY_GC_LAST_FREE_RUN_INDEX
+                if (ATB_0_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 0; goto found; } } else { passed_run |= n_free >= 2; n_free = 0; }
+                if (ATB_1_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 1; goto found; } } else { passed_run |= n_free >= 2; n_free = 0; }
+                if (ATB_2_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 2; goto found; } } else { passed_run |= n_free >= 2; n_free = 0; }
+                if (ATB_3_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 3; goto found; } } else { passed_run |= n_free >= 2; n_free = 0; }
+                #else
                 if (ATB_0_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 0; goto found; } } else { n_free = 0; }
                 if (ATB_1_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 1; goto found; } } else { n_free = 0; }
                 if (ATB_2_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 2; goto found; } } else { n_free = 0; }
                 if (ATB_3_IS_FREE(a)) { if (++n_free >= n_blocks) { i = i * BLOCKS_PER_ATB + 3; goto found; } } else { n_free = 0; }
+                #endif
                 // *FORMAT-ON*
                 i++;
             }
@@ -1166,6 +1189,14 @@ found:
         #endif
         area->gc_last_free_atb_index = (i + 1) / BLOCKS_PER_ATB;
     }
+
+    #if MICROPY_GC_LAST_FREE_RUN_INDEX
+    // Unless a shorter multi-block run was passed, this run was the first of two or more blocks
+    // from where the search began, so the last free run index can move past it
+    if (n_blocks > 1 && !passed_run) {
+        area->gc_last_free_run_atb_index = (i + 1) / BLOCKS_PER_ATB;
+    }
+    #endif
 
     area->gc_last_used_block = MAX(area->gc_last_used_block, end_block);
 
@@ -1299,6 +1330,14 @@ void gc_free(void *ptr) {
         area->gc_last_free_atb_index = block / BLOCKS_PER_ATB;
     }
 
+    #if MICROPY_GC_LAST_FREE_RUN_INDEX
+    // The freed run may join a free block just before it, so the last free run index falls back one further
+    size_t run_block = block > 0 ? block - 1 : 0;
+    if (run_block / BLOCKS_PER_ATB < area->gc_last_free_run_atb_index) {
+        area->gc_last_free_run_atb_index = run_block / BLOCKS_PER_ATB;
+    }
+    #endif
+
     // free head and all of its tail blocks
     do {
         ATB_ANY_TO_FREE(area, block);
@@ -1429,6 +1468,13 @@ void *gc_realloc(void *ptr_in, size_t n_bytes, bool allow_move) {
         if ((block + new_blocks) / BLOCKS_PER_ATB < area->gc_last_free_atb_index) {
             area->gc_last_free_atb_index = (block + new_blocks) / BLOCKS_PER_ATB;
         }
+
+        #if MICROPY_GC_LAST_FREE_RUN_INDEX
+        // The kept part ends in a used block, so a new run cannot start before the freed tail
+        if ((block + new_blocks) / BLOCKS_PER_ATB < area->gc_last_free_run_atb_index) {
+            area->gc_last_free_run_atb_index = (block + new_blocks) / BLOCKS_PER_ATB;
+        }
+        #endif
 
         GC_EXIT();
 

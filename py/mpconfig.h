@@ -281,6 +281,13 @@ typedef uint64_t mp_uint_t;
 #define MICROPY_GC_ALLOC_THRESHOLD (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_CORE_FEATURES)
 #endif
 
+// Whether each heap area keeps a last free run index, where a multi-block allocation starts its
+// search, past single free blocks it cannot use. Objects are placed as without it, at the cost of
+// one word per heap area.
+#ifndef MICROPY_GC_LAST_FREE_RUN_INDEX
+#define MICROPY_GC_LAST_FREE_RUN_INDEX (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EXTRA_FEATURES)
+#endif
+
 // Number of bytes to allocate initially when creating new chunks to store
 // interned string data.  Smaller numbers lead to more chunks being needed
 // and more wastage at the end of the chunk.  Larger numbers lead to wasted

@@ -24,6 +24,7 @@
  */
 #include "tusb.h"
 #if CFG_TUD_MSC
+#include "device/usbd_pvt.h"
 #include "mpconfigboard.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
@@ -159,14 +160,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
     return count * BLOCK_SIZE;
 }
 
-// Callback invoked when received WRITE10 command.
-// Process data in buffer to disk's storage and return number of written bytes
-int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
-    // Refuse while the device holds the media, which may be modifying the filesystem.
-    if (!media_available(lun)) {
-        return -1;
-    }
-    last_write = get_absolute_time();
+static int32_t write_blocks(uint32_t lba, uint8_t *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
     // The port's own section, not just the interrupts: it also suspends the other
     // core, commits dirty PSRAM writes before the XIP cache is invalidated, and puts
@@ -176,6 +170,74 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
     flash_range_program(FLASH_BASE_ADDR + lba * BLOCK_SIZE, buffer, count * BLOCK_SIZE);
     end_critical_flash_section(state);
     return count * BLOCK_SIZE;
+}
+
+// The first write after an idle spell can be held for up to write_hold_us, so the board
+// can quieten what a flash write disturbs before the writes begin: each leaves the flash
+// unreadable, with interrupts off, for tens of milliseconds. It goes early on
+// rp2.release_msc_writes(). The held buffer is TinyUSB's, kept until the write is done.
+static uint32_t write_hold_us = 0;
+static volatile bool write_held = false;
+static uint8_t held_lun;
+static uint32_t held_lba;
+static uint8_t *held_buffer;
+static uint32_t held_bufsize;
+static alarm_id_t held_alarm;
+
+// Run in the USB task, from the alarm or a release, whichever comes first
+static void write_held_blocks(void *param) {
+    (void)param;
+    if (!write_held) {
+        return;
+    }
+    write_held = false;
+    cancel_alarm(held_alarm);
+    // Taken back by the board meanwhile, so the write fails as one arriving now would
+    int32_t result = media_available(held_lun)
+        ? write_blocks(held_lba, held_buffer, held_bufsize) : TUD_MSC_RET_ERROR;
+    last_write = get_absolute_time();
+    tud_msc_async_io_done(result, false);
+}
+
+static int64_t write_hold_expired(alarm_id_t id, void *user_data) {
+    usbd_defer_func(write_held_blocks, NULL, true);
+    return 0;
+}
+
+void rp2_tud_hold_msc_writes(uint32_t hold_us) {
+    write_hold_us = hold_us;
+}
+
+void rp2_tud_release_msc_writes(void) {
+    if (write_held) {
+        usbd_defer_func(write_held_blocks, NULL, false);
+    }
+}
+
+// Callback invoked when received WRITE10 command.
+// Process data in buffer to disk's storage and return number of written bytes
+int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
+    // Refuse while the device holds the media, which may be modifying the filesystem.
+    if (!media_available(lun)) {
+        return -1;
+    }
+    // Checked before last_write moves, which is what makes the board busy at once
+    bool idle = !rp2_tud_is_msc_busy();
+    last_write = get_absolute_time();
+    if (write_hold_us && idle && !write_held) {
+        held_lun = lun;
+        held_lba = lba;
+        held_buffer = buffer;
+        held_bufsize = bufsize;
+        write_held = true;
+        // Negative is no alarm free, in which case the write goes now
+        held_alarm = add_alarm_in_us(write_hold_us, write_hold_expired, NULL, true);
+        if (held_alarm >= 0) {
+            return TUD_MSC_RET_ASYNC;
+        }
+        write_held = false;
+    }
+    return write_blocks(lba, buffer, bufsize);
 }
 
 // Callback invoked when received an SCSI command not in built-in list below

@@ -121,6 +121,23 @@ static mp_obj_t rp2_msc_ejected() {
     return mp_obj_new_bool(rp2_tud_msc_ejected());
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_msc_ejected_obj, rp2_msc_ejected);
+
+// Hold the first write after an idle spell for up to this many milliseconds, 0 for never.
+// is_msc_busy() turns true as the hold begins, before anything is written.
+extern void rp2_tud_hold_msc_writes(uint32_t hold_us);
+static mp_obj_t rp2_hold_msc_writes(mp_obj_t ms_in) {
+    rp2_tud_hold_msc_writes(mp_obj_get_int(ms_in) * 1000);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(rp2_hold_msc_writes_obj, rp2_hold_msc_writes);
+
+// Let a held write go now
+extern void rp2_tud_release_msc_writes(void);
+static mp_obj_t rp2_release_msc_writes(void) {
+    rp2_tud_release_msc_writes();
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_release_msc_writes_obj, rp2_release_msc_writes);
 #endif // MICROPY_HW_USB_MSC
 
 #if MICROPY_HW_ENABLE_USBDEV
@@ -145,6 +162,8 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_disable_msc),         MP_ROM_PTR(&rp2_disable_user_msc_obj) },
     { MP_ROM_QSTR(MP_QSTR_is_msc_busy),         MP_ROM_PTR(&rp2_is_msc_busy_obj) },
     { MP_ROM_QSTR(MP_QSTR_msc_ejected),         MP_ROM_PTR(&rp2_msc_ejected_obj) },
+    { MP_ROM_QSTR(MP_QSTR_hold_msc_writes),     MP_ROM_PTR(&rp2_hold_msc_writes_obj) },
+    { MP_ROM_QSTR(MP_QSTR_release_msc_writes),  MP_ROM_PTR(&rp2_release_msc_writes_obj) },
     #endif
     #if MICROPY_HW_ENABLE_USBDEV
     { MP_ROM_QSTR(MP_QSTR_usb_mounted),         MP_ROM_PTR(&rp2_usb_mounted_obj) },

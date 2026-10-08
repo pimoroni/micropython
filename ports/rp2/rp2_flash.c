@@ -174,23 +174,34 @@ static void __no_inline_not_in_flash_func(rp2_flash_set_timing_internal)(int clo
 // I2S's are, runs on past its buffers and plays whatever memory follows them.
 // Through AL1_CTRL, the alias that does not trigger: a write to CTRL_TRIG restarts an
 // idle channel, which then runs a whole transfer on from where its addresses stopped.
+// A channel finishing triggers the one it chains to, and a disabled channel ignores the
+// trigger, which stops the chain for good. So busy channels pause before idle ones and
+// resume after them, and a channel that finishes meanwhile triggers one still enabled.
 static uint32_t paused_dma_channels;
 
 static void pause_dma(void) {
     paused_dma_channels = 0;
-    for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
-        io_rw_32 *ctrl = &dma_hw->ch[i].al1_ctrl;
-        if (*ctrl & DMA_CH0_CTRL_TRIG_EN_BITS) {
-            hw_clear_bits(ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
-            paused_dma_channels |= 1u << i;
+    for (int busy_pass = 1; busy_pass >= 0; busy_pass--) {
+        for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
+            io_rw_32 *ctrl = &dma_hw->ch[i].al1_ctrl;
+            uint32_t state = *ctrl;
+            if ((state & DMA_CH0_CTRL_TRIG_EN_BITS)
+                && (!busy_pass || (state & DMA_CH0_CTRL_TRIG_BUSY_BITS))) {
+                hw_clear_bits(ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+                paused_dma_channels |= 1u << i;
+            }
         }
     }
 }
 
 static void resume_dma(void) {
-    for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
-        if (paused_dma_channels & (1u << i)) {
-            hw_set_bits(&dma_hw->ch[i].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+    for (int busy_pass = 0; busy_pass <= 1; busy_pass++) {
+        for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
+            io_rw_32 *ctrl = &dma_hw->ch[i].al1_ctrl;
+            bool busy = (*ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS) != 0;
+            if ((paused_dma_channels & (1u << i)) && busy == busy_pass) {
+                hw_set_bits(ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+            }
         }
     }
     paused_dma_channels = 0;

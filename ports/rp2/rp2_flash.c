@@ -167,31 +167,27 @@ static void __no_inline_not_in_flash_func(rp2_flash_set_timing_internal)(int clo
     #endif
 }
 
-// Flash and PSRAM share the QMI, so a DMA channel reading either through the XIP
-// window while the flash is mid-command errors its transfer and can leave the QMI
-// never reporting completion, hanging the operation. Those channels pause for it.
+// Every enabled DMA channel pauses for a flash operation, for two reasons. Flash and PSRAM
+// share the QMI, so a channel reading either through the XIP window while the flash is
+// mid-command errors its transfer and can leave the QMI never reporting completion, hanging
+// the operation. And interrupts are off throughout, so a chain its IRQ handler re-arms, as
+// I2S's are, runs on past its buffers and plays whatever memory follows them.
 // Through AL1_CTRL, the alias that does not trigger: a write to CTRL_TRIG restarts an
 // idle channel, which then runs a whole transfer on from where its addresses stopped.
 static uint32_t paused_dma_channels;
 
-static void pause_xip_dma(void) {
+static void pause_dma(void) {
     paused_dma_channels = 0;
     for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
         io_rw_32 *ctrl = &dma_hw->ch[i].al1_ctrl;
-        if (!(*ctrl & DMA_CH0_CTRL_TRIG_EN_BITS)) {
-            continue;
-        }
-        uint32_t read_addr = dma_hw->ch[i].read_addr;
-        uint32_t write_addr = dma_hw->ch[i].write_addr;
-        if ((read_addr >= XIP_BASE && read_addr < SRAM_BASE)
-            || (write_addr >= XIP_BASE && write_addr < SRAM_BASE)) {
+        if (*ctrl & DMA_CH0_CTRL_TRIG_EN_BITS) {
             hw_clear_bits(ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
             paused_dma_channels |= 1u << i;
         }
     }
 }
 
-static void resume_xip_dma(void) {
+static void resume_dma(void) {
     for (uint i = 0; i < NUM_DMA_CHANNELS; i++) {
         if (paused_dma_channels & (1u << i)) {
             hw_set_bits(&dma_hw->ch[i].al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
@@ -207,7 +203,7 @@ uint32_t begin_critical_flash_section(void) {
         multicore_lockout_start_blocking();
     }
     uint32_t state = save_and_disable_interrupts();
-    pause_xip_dma();
+    pause_dma();
 
     #if MICROPY_HW_ENABLE_PSRAM
     // We're about to invalidate the XIP cache, clean it first to commit any dirty writes to PSRAM
@@ -228,7 +224,7 @@ void end_critical_flash_section(uint32_t state) {
     // defaults. (PSRAM timing is restored automatically by the SDK's flash
     // routines via the QMI CS1 setup callback registered by psram_reinitialize.)
     rp2_flash_set_timing_internal(clock_get_hz(clk_sys));
-    resume_xip_dma();
+    resume_dma();
     restore_interrupts(state);
     if (use_multicore_lockout()) {
         multicore_lockout_end_blocking();

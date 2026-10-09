@@ -124,11 +124,11 @@ static mp_obj_t rp2_msc_ejected() {
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_msc_ejected_obj, rp2_msc_ejected);
 
 // Hold the first write after an idle spell for up to this many milliseconds, 0 for never.
-// is_msc_busy() turns true as the hold begins, before anything is written.
-extern void rp2_tud_hold_msc_writes(uint32_t hold_us);
+// is_msc_busy() turns true as the hold begins, before anything is written. Returns the hold
+// this replaces, so a caller can put it back.
+extern uint32_t rp2_tud_hold_msc_writes(uint32_t hold_us);
 static mp_obj_t rp2_hold_msc_writes(mp_obj_t ms_in) {
-    rp2_tud_hold_msc_writes(mp_obj_get_int(ms_in) * 1000);
-    return mp_const_none;
+    return MP_OBJ_NEW_SMALL_INT(rp2_tud_hold_msc_writes(mp_obj_get_int(ms_in) * 1000) / 1000);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(rp2_hold_msc_writes_obj, rp2_hold_msc_writes);
 

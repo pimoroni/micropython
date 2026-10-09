@@ -214,8 +214,10 @@ static int64_t write_hold_expired(alarm_id_t id, void *user_data) {
     return 0;
 }
 
-void rp2_tud_hold_msc_writes(uint32_t hold_us) {
+uint32_t rp2_tud_hold_msc_writes(uint32_t hold_us) {
+    uint32_t previous = write_hold_us;
     write_hold_us = hold_us;
+    return previous;
 }
 
 void rp2_tud_release_msc_writes(void) {

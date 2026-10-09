@@ -26,6 +26,7 @@
 
 #include "py/mphal.h"
 #include "py/runtime.h"
+#include "py/smallint.h"
 #include "drivers/dht/dht.h"
 #include "modrp2.h"
 #include "mp_usbd.h"
@@ -138,6 +139,14 @@ static mp_obj_t rp2_release_msc_writes(void) {
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_0(rp2_release_msc_writes_obj, rp2_release_msc_writes);
+
+// The host's writes so far, wrapping within a small int so reading it never allocates.
+// Only equality means anything, unchanged across a read meaning nothing was written meanwhile.
+extern uint32_t rp2_tud_msc_write_count(void);
+static mp_obj_t rp2_msc_write_count(void) {
+    return MP_OBJ_NEW_SMALL_INT(rp2_tud_msc_write_count() & MP_SMALL_INT_POSITIVE_MASK);
+}
+MP_DEFINE_CONST_FUN_OBJ_0(rp2_msc_write_count_obj, rp2_msc_write_count);
 #endif // MICROPY_HW_USB_MSC
 
 #if MICROPY_HW_ENABLE_USBDEV
@@ -164,6 +173,7 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_msc_ejected),         MP_ROM_PTR(&rp2_msc_ejected_obj) },
     { MP_ROM_QSTR(MP_QSTR_hold_msc_writes),     MP_ROM_PTR(&rp2_hold_msc_writes_obj) },
     { MP_ROM_QSTR(MP_QSTR_release_msc_writes),  MP_ROM_PTR(&rp2_release_msc_writes_obj) },
+    { MP_ROM_QSTR(MP_QSTR_msc_write_count),     MP_ROM_PTR(&rp2_msc_write_count_obj) },
     #endif
     #if MICROPY_HW_ENABLE_USBDEV
     { MP_ROM_QSTR(MP_QSTR_usb_mounted),         MP_ROM_PTR(&rp2_usb_mounted_obj) },

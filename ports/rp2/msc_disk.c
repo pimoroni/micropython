@@ -58,6 +58,11 @@ static bool ready = false;
 static volatile bool eject_event = false;
 static absolute_time_t last_write = 0;
 
+// Counts the host's writes, moving just before each changes the flash, so a reader that sees it
+// unchanged across a read knows nothing was written beneath it. A held write counts once it
+// goes. Wraps, so only compare it.
+static volatile uint32_t write_count = 0;
+
 // Set when the media is re-presented, and reported once as unit attention 28h
 // (not-ready-to-ready change) so the host discards its cached view of the disk.
 static bool attention = false;
@@ -107,6 +112,10 @@ bool rp2_tud_msc_ejected() {
 bool rp2_tud_is_msc_busy() {
     if(last_write == 0) return false;
     return  absolute_time_diff_us(last_write, get_absolute_time()) < WRITE_BUSY_STATUS_TIMEOUT;
+}
+
+uint32_t rp2_tud_msc_write_count(void) {
+    return write_count;
 }
 
 // Invoked when received SCSI_CMD_INQUIRY
@@ -162,6 +171,7 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 
 static int32_t write_blocks(uint32_t lba, uint8_t *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
+    write_count++;
     // The port's own section, not just the interrupts: it also suspends the other
     // core, commits dirty PSRAM writes before the XIP cache is invalidated, and puts
     // the flash timing back afterwards, all of which a write from here needs too

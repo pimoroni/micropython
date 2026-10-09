@@ -185,6 +185,7 @@ set(MICROPY_SOURCE_PORT
     uart.c
     usbd.c
     msc_disk.c
+    msc_file.c
     mbedtls/mbedtls_port.c
     ${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c
 )
@@ -204,6 +205,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_PORT_DIR}/machine_uart.c
     ${MICROPY_PORT_DIR}/machine_wdt.c
     ${MICROPY_PORT_DIR}/modrp2.c
+    ${MICROPY_PORT_DIR}/msc_file.c
     ${MICROPY_PORT_DIR}/rp2_flash.c
     ${MICROPY_PORT_DIR}/rp2_pio.c
     ${MICROPY_PORT_DIR}/rp2_dma.c

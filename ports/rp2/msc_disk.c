@@ -118,6 +118,12 @@ uint32_t rp2_tud_msc_write_count(void) {
     return write_count;
 }
 
+// The media as the XIP window maps it, for reads that bypass the filesystem
+const uint8_t *rp2_tud_msc_media(size_t *bytes) {
+    *bytes = MICROPY_HW_USB_MSC_FLASH_BYTES;
+    return (const uint8_t *)FLASH_MMAP_ADDR;
+}
+
 // Invoked when received SCSI_CMD_INQUIRY
 // Application fill vendor id, product id and revision with string up to 8, 16, 4 characters respectively
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {

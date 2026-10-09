@@ -174,6 +174,7 @@ static const mp_rom_map_elem_t rp2_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_hold_msc_writes),     MP_ROM_PTR(&rp2_hold_msc_writes_obj) },
     { MP_ROM_QSTR(MP_QSTR_release_msc_writes),  MP_ROM_PTR(&rp2_release_msc_writes_obj) },
     { MP_ROM_QSTR(MP_QSTR_msc_write_count),     MP_ROM_PTR(&rp2_msc_write_count_obj) },
+    { MP_ROM_QSTR(MP_QSTR_MSCFile),             MP_ROM_PTR(&rp2_msc_file_type) },
     #endif
     #if MICROPY_HW_ENABLE_USBDEV
     { MP_ROM_QSTR(MP_QSTR_usb_mounted),         MP_ROM_PTR(&rp2_usb_mounted_obj) },

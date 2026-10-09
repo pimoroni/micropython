@@ -36,6 +36,7 @@ extern const mp_obj_type_t rp2_pio_type;
 extern const mp_obj_type_t rp2_state_machine_type;
 extern const mp_obj_type_t rp2_dma_type;
 extern const mp_obj_type_t rp2_dma_timer_type;
+extern const mp_obj_type_t rp2_msc_file_type;
 
 void rp2_pio_init(void);
 void rp2_pio_deinit(void);

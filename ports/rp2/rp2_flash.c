@@ -31,6 +31,7 @@
 #include "py/mperrno.h"
 #include "extmod/vfs.h"
 #include "modrp2.h"
+#include "shared/tinyusb/mp_usbd.h"
 #include "hardware/dma.h"
 #include "hardware/flash.h"
 #include "pico/binary_info.h"
@@ -340,6 +341,15 @@ static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_flash_readblocks_obj, 3, 4, rp2_flash_readblocks);
 
+// Services USB between the steps of a write without handling pending exceptions. A
+// KeyboardInterrupt raised between the erase and the last page would leave the rest of
+// the sector erased, so pending exceptions wait until the write is whole.
+static void rp2_flash_service_usb(void) {
+    #if MICROPY_HW_ENABLE_USBDEV
+    mp_usbd_task();
+    #endif
+}
+
 static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_int_t block_num = mp_obj_get_int(args[1]);
@@ -351,7 +361,7 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
         mp_uint_t atomic_state = begin_critical_flash_section();
         flash_range_erase(self->flash_base + offset, bufinfo.len);
         end_critical_flash_section(atomic_state);
-        mp_event_handle_nowait();
+        rp2_flash_service_usb();
         // TODO check return value
     } else {
         offset += mp_obj_get_int(args[3]);
@@ -369,7 +379,6 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
         mp_uint_t atomic_state = begin_critical_flash_section();
         flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
         end_critical_flash_section(atomic_state);
-        mp_event_handle_nowait();
     } else {
         size_t bytes_left = bufinfo.len;
         size_t bytes_offset = 0;
@@ -385,10 +394,12 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
                 break;
             }
             bytes_left -= COPY_BUFFER_SIZE_BYTES;
-            mp_event_handle_nowait();
+            rp2_flash_service_usb();
         }
     }
 
+    // The sector is whole, so a pending KeyboardInterrupt can be raised now
+    mp_event_handle_nowait();
     // TODO check return value
     return mp_const_none;
 }

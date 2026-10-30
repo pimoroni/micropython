@@ -61,6 +61,11 @@
 #ifndef MICROPY_HW_USB_MSC
 #define MICROPY_HW_USB_MSC (0)
 #endif
+// Take the media back from the host at a soft reset, as a cold boot leaves it, so the
+// next program does not start with the host still able to write beneath it.
+#ifndef MICROPY_HW_USB_MSC_UNREADY_ON_SOFT_RESET
+#define MICROPY_HW_USB_MSC_UNREADY_ON_SOFT_RESET (0)
+#endif
 
 #ifndef MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE
 #define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE    (1) // Support machine.USBDevice

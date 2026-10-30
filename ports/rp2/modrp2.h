@@ -44,4 +44,6 @@ void rp2_pio_deinit(void);
 void rp2_dma_init(void);
 void rp2_dma_deinit(void);
 
+void rp2_tud_msc_deinit(void);
+
 #endif // MICROPY_INCLUDED_RP2_MODRP2_H

@@ -232,6 +232,14 @@ void rp2_tud_release_msc_writes(void) {
     }
 }
 
+// Take the media back and drop the write hold, as a cold boot leaves them. A held write
+// is let go, and fails as the media is no longer the host's.
+void rp2_tud_msc_deinit(void) {
+    ready = false;
+    write_hold_us = 0;
+    rp2_tud_release_msc_writes();
+}
+
 // Callback invoked when received WRITE10 command.
 // Process data in buffer to disk's storage and return number of written bytes
 int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {

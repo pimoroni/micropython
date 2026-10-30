@@ -35,6 +35,12 @@
 #define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE 0
 #endif
 
+// Keep the bus across a soft reset while the runtime device is the built-in one unchanged,
+// so the host does not see the board leave and return.
+#ifndef MICROPY_HW_USB_KEEP_BUS_ON_SOFT_RESET
+#define MICROPY_HW_USB_KEEP_BUS_ON_SOFT_RESET 0
+#endif
+
 #ifndef MICROPY_HW_USB_MANUFACTURER_STRING
 #define MICROPY_HW_USB_MANUFACTURER_STRING "MicroPython"
 #endif

@@ -25,6 +25,7 @@
  * THE SOFTWARE.
  */
 #include <stdlib.h>
+#include <string.h>
 
 #include "mp_usbd.h"
 #include "py/mpconfig.h"
@@ -447,6 +448,29 @@ void mp_usbd_init(void) {
     }
 }
 
+#if MICROPY_HW_USB_KEEP_BUS_ON_SOFT_RESET
+// Whether a runtime device is the built-in device unchanged: the built-in descriptors and
+// drivers, with no interface or strings of its own. The host already holds that device, so
+// a soft reset can hand it back to the built-in one without leaving the bus.
+static bool mp_usbd_is_builtin_unchanged(mp_obj_usb_device_t *usbd) {
+    if (usbd->builtin_driver != MP_OBJ_FROM_PTR(&mp_type_usb_device_builtin_default)
+        || usbd->desc_strs != mp_const_none || usbd->open_itf_cb != mp_const_none
+        || usbd->control_xfer_cb != mp_const_none || usbd->xfer_cb != mp_const_none) {
+        return false;
+    }
+    mp_buffer_info_t dev;
+    mp_buffer_info_t cfg;
+    if (!mp_get_buffer(usbd->desc_dev, &dev, MP_BUFFER_READ)
+        || !mp_get_buffer(usbd->desc_cfg, &cfg, MP_BUFFER_READ)) {
+        return false;
+    }
+    return dev.len == sizeof(mp_usbd_builtin_desc_dev)
+           && memcmp(dev.buf, &mp_usbd_builtin_desc_dev, dev.len) == 0
+           && cfg.len == sizeof(mp_usbd_builtin_desc_cfg)
+           && memcmp(cfg.buf, mp_usbd_builtin_desc_cfg, cfg.len) == 0;
+}
+#endif
+
 // Top-level USB device deinit.
 //
 // This variant is called from soft reset, NULLs out the USB device
@@ -456,6 +480,11 @@ void mp_usbd_deinit(void) {
     mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
     MP_STATE_VM(usbd) = MP_OBJ_NULL;
     if (usbd && usbd->active) {
+        #if MICROPY_HW_USB_KEEP_BUS_ON_SOFT_RESET
+        if (mp_usbd_is_builtin_unchanged(usbd)) {
+            return;
+        }
+        #endif
         // Disconnect if a runtime USB device was active
         mp_usbd_disconnect(usbd);
     }

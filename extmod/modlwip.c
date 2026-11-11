@@ -1182,6 +1182,10 @@ static mp_obj_t lwip_socket_accept(mp_obj_t self_in) {
     tcp_recv(socket2->pcb.tcp, _lwip_tcp_recv);
     tcp_accepted(listener);
 
+    if (socket2->pcb.tcp->refused_data != NULL) {
+        tcp_process_refused_data(socket2->pcb.tcp);
+    }
+
     MICROPY_PY_LWIP_EXIT
 
     // make the return value

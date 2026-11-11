@@ -5,10 +5,11 @@ from . import core
 
 
 class Stream:
-    def __init__(self, s, e={}):
+    def __init__(self, s, e={}, nonblocking=False):
         self.s = s
         self.e = e
         self.out_buf = b""
+        self.nonblocking = nonblocking
 
     def get_extra_info(self, v):
         return self.e[v]
@@ -23,8 +24,11 @@ class Stream:
     # async
     def read(self, n=-1):
         r = b""
+        wait = not self.nonblocking
         while True:
-            yield core._io_queue.queue_read(self.s)
+            if wait:
+                yield core._io_queue.queue_read(self.s)
+            wait = True
             r2 = self.s.read(n)
             if r2 is not None:
                 if n >= 0:
@@ -41,8 +45,11 @@ class Stream:
     # async
     def readexactly(self, n):
         r = b""
+        wait = not self.nonblocking
         while n:
-            yield core._io_queue.queue_read(self.s)
+            if wait:
+                yield core._io_queue.queue_read(self.s)
+            wait = True
             r2 = self.s.read(n)
             if r2 is not None:
                 if not len(r2):
@@ -54,8 +61,11 @@ class Stream:
     # async
     def readline(self):
         l = b""
+        wait = not self.nonblocking
         while True:
-            yield core._io_queue.queue_read(self.s)
+            if wait:
+                yield core._io_queue.queue_read(self.s)
+            wait = True
             l2 = self.s.readline()  # may do multiple reads but won't block
             if l2 is None:
                 continue
@@ -118,7 +128,7 @@ def open_connection(host, port, ssl=None, server_hostname=None):
             server_hostname = host
         s = ssl.wrap_socket(s, server_hostname=server_hostname, do_handshake_on_connect=False)
         s.setblocking(False)
-    ss = Stream(s)
+    ss = Stream(s, nonblocking=True)
     yield core._io_queue.queue_write(s)
     return ss, ss
 
@@ -170,7 +180,7 @@ class Server:
                     s2.close()
                     continue
             s2.setblocking(False)
-            s2s = Stream(s2, {"peername": addr})
+            s2s = Stream(s2, {"peername": addr}, nonblocking=True)
             core.create_task(cb(s2s, s2s))
 
 

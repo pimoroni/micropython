@@ -178,6 +178,11 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void *buff
 static int32_t write_blocks(uint32_t lba, uint8_t *buffer, uint32_t bufsize) {
     uint32_t count = bufsize / BLOCK_SIZE;
     write_count++;
+    // A host rewrites the same FAT and directory blocks many times in one save, so a
+    // write the flash already holds is left alone, saving its erase and program
+    if (memcmp((void *)(FLASH_MMAP_ADDR + lba * BLOCK_SIZE), buffer, count * BLOCK_SIZE) == 0) {
+        return count * BLOCK_SIZE;
+    }
     // The port's own section, not just the interrupts: it also suspends the other
     // core, commits dirty PSRAM writes before the XIP cache is invalidated, and puts
     // the flash timing back afterwards, all of which a write from here needs too

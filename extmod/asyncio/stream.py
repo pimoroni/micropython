@@ -24,14 +24,15 @@ class Stream:
     def read(self, n=-1):
         r = b""
         while True:
-            yield core._io_queue.queue_read(self.s)
             r2 = self.s.read(n)
-            if r2 is not None:
-                if n >= 0:
-                    return r2
-                if not len(r2):
-                    return r
-                r += r2
+            if r2 is None:
+                yield core._io_queue.queue_read(self.s)
+                continue
+            if n >= 0:
+                return r2
+            if not len(r2):
+                return r
+            r += r2
 
     # async
     def readinto(self, buf):
@@ -42,22 +43,23 @@ class Stream:
     def readexactly(self, n):
         r = b""
         while n:
-            yield core._io_queue.queue_read(self.s)
             r2 = self.s.read(n)
-            if r2 is not None:
-                if not len(r2):
-                    raise EOFError
-                r += r2
-                n -= len(r2)
+            if r2 is None:
+                yield core._io_queue.queue_read(self.s)
+                continue
+            if not len(r2):
+                raise EOFError
+            r += r2
+            n -= len(r2)
         return r
 
     # async
     def readline(self):
         l = b""
         while True:
-            yield core._io_queue.queue_read(self.s)
             l2 = self.s.readline()  # may do multiple reads but won't block
             if l2 is None:
+                yield core._io_queue.queue_read(self.s)
                 continue
             l += l2
             if not l2 or l[-1] == 10:  # \n (check l in case l2 is str)

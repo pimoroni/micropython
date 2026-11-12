@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
         #endif
         soft_timer_deinit();
         // Before the USB device goes, so a held write it lets go still completes
-        #if MICROPY_HW_USB_MSC && MICROPY_HW_USB_MSC_UNREADY_ON_SOFT_RESET
+        #if MICROPY_HW_USB_MSC && MICROPY_HW_USB_MSC_RELEASE_WRITES_ON_SOFT_RESET
         rp2_tud_msc_deinit();
         #endif
         #if MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE

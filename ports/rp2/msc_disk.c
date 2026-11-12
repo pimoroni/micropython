@@ -237,10 +237,11 @@ void rp2_tud_release_msc_writes(void) {
     }
 }
 
-// Take the media back and drop the write hold, as a cold boot leaves them. A held write
-// is let go, and fails as the media is no longer the host's.
+// Drop the write hold at a soft reset, letting a held write go. The media stays with
+// whichever side has it. A host that stays connected learns that media has gone only
+// from a failed transfer, which macOS retries for as long as the device stays on the
+// bus, so a device wanting the media back takes it and leaves the bus.
 void rp2_tud_msc_deinit(void) {
-    ready = false;
     write_hold_us = 0;
     rp2_tud_release_msc_writes();
 }

@@ -66,6 +66,11 @@
 #ifndef MICROPY_HW_USB_MSC_RELEASE_WRITES_ON_SOFT_RESET
 #define MICROPY_HW_USB_MSC_RELEASE_WRITES_ON_SOFT_RESET (0)
 #endif
+// Refuse writes and erases of the MSC media through rp2.Flash(msc=True) while the host
+// has it, so the device and the host never write one volume.
+#ifndef MICROPY_HW_USB_MSC_HOST_WRITES_ONLY
+#define MICROPY_HW_USB_MSC_HOST_WRITES_ONLY (0)
+#endif
 
 #ifndef MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE
 #define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE    (1) // Support machine.USBDevice

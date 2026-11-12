@@ -103,6 +103,11 @@ bool rp2_tud_set_msc_unready() {
     return true;
 }
 
+// Whether the host has the media, and so may be writing it.
+bool rp2_tud_msc_host_has_media(void) {
+    return ready && !ejected;
+}
+
 // Reports a host eject since the media was last presented. The host owns the
 // decision to eject; what happens next (remount, reboot) is Python's policy.
 bool rp2_tud_msc_ejected() {

@@ -350,8 +350,21 @@ static void rp2_flash_service_usb(void) {
     #endif
 }
 
+// The host writes the MSC media while it has it, so a write or an erase from here is
+// refused until the media is taken back. Two writers on one volume corrupt it.
+static void rp2_flash_check_writable(rp2_flash_obj_t *self) {
+    #if MICROPY_HW_USB_MSC && MICROPY_HW_USB_MSC_HOST_WRITES_ONLY && defined(MICROPY_HW_USB_MSC_FLASH_OFFSET)
+    if (self->flash_base == MICROPY_HW_USB_MSC_FLASH_OFFSET && rp2_tud_msc_host_has_media()) {
+        mp_raise_OSError(MP_EPERM);
+    }
+    #else
+    (void)self;
+    #endif
+}
+
 static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    rp2_flash_check_writable(self);
     mp_int_t block_num = mp_obj_get_int(args[1]);
     uint32_t offset = block_num * BLOCK_SIZE_BYTES;
     mp_buffer_info_t bufinfo;
@@ -420,6 +433,7 @@ static mp_obj_t rp2_flash_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t arg_
         case MP_BLOCKDEV_IOCTL_BLOCK_SIZE:
             return MP_OBJ_NEW_SMALL_INT(BLOCK_SIZE_BYTES);
         case MP_BLOCKDEV_IOCTL_BLOCK_ERASE: {
+            rp2_flash_check_writable(self);
             uint32_t offset = mp_obj_get_int(arg_in) * BLOCK_SIZE_BYTES;
             mp_uint_t atomic_state = begin_critical_flash_section();
             flash_range_erase(self->flash_base + offset, BLOCK_SIZE_BYTES);

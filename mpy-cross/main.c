@@ -36,6 +36,7 @@
 #include "py/runtime.h"
 #include "py/gc.h"
 #include "py/parsenumbase.h"
+#include "py/bc.h"
 #include "genhdr/mpversion.h"
 #ifdef _WIN32
 #include "ports/windows/fmode.h"
@@ -52,6 +53,10 @@ static uint emit_opt = MP_EMIT_OPT_NONE;
 
 #if MICROPY_ENABLE_SOURCE_LINE
 static bool include_source_lines = true;
+#endif
+
+#if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+static const char *locals_file = NULL;
 #endif
 
 // Heap size of GC heap (if enabled)
@@ -73,6 +78,65 @@ static void stderr_print_strn(void *env, const char *str, size_t len) {
 }
 
 static const mp_print_t mp_stderr_print = {NULL, stderr_print_strn};
+
+#if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+static void write_json_string(FILE *out, const char *str) {
+    fputc('"', out);
+    for (; *str; ++str) {
+        if (*str == '"' || *str == '\\') {
+            fputc('\\', out);
+        }
+        fputc(*str, out);
+    }
+    fputc('"', out);
+}
+
+static void write_local_names(FILE *out, const mp_module_context_t *context, const mp_raw_code_t *rc, bool *first) {
+    if (rc->kind == MP_CODE_BYTECODE && rc->local_names != NULL) {
+        const byte *ip = rc->fun_data;
+        MP_BC_PRELUDE_SIG_DECODE(ip);
+        MP_BC_PRELUDE_SIZE_DECODE(ip);
+        const byte *line_info_top = ip + n_info;
+        qstr name = context->constants.qstr_table[mp_decode_uint_value(ip)];
+        for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
+            ip = mp_decode_uint_skip(ip);
+        }
+        size_t line = mp_bytecode_get_source_line(ip, line_info_top, 0);
+        fprintf(out, "%s\n    {\"name\": ", *first ? "" : ",");
+        write_json_string(out, qstr_str(name));
+        fprintf(out, ", \"line\": %u, \"locals\": [", (unsigned int)line);
+        for (size_t i = 0; i < rc->local_names_len; ++i) {
+            if (i > 0) {
+                fputs(", ", out);
+            }
+            if (rc->local_names[i] == MP_QSTRnull) {
+                fputs("null", out);
+            } else {
+                write_json_string(out, qstr_str(rc->local_names[i]));
+            }
+        }
+        fputs("]}", out);
+        *first = false;
+    }
+    for (size_t i = 0; i < rc->n_children; ++i) {
+        write_local_names(out, context, rc->children[i], first);
+    }
+}
+
+static void save_local_names(const mp_compiled_module_t *cm, qstr source_name) {
+    FILE *out = fopen(locals_file, "w");
+    if (out == NULL) {
+        mp_raise_OSError(errno);
+    }
+    fputs("{\"file\": ", out);
+    write_json_string(out, qstr_str(source_name));
+    fputs(", \"functions\": [", out);
+    bool first = true;
+    write_local_names(out, cm->context, cm->rc, &first);
+    fputs("\n]}\n", out);
+    fclose(out);
+}
+#endif
 
 static int compile_and_save(const char *file, const char *output_file, const char *source_file) {
     nlr_buf_t nlr;
@@ -106,6 +170,12 @@ static int compile_and_save(const char *file, const char *output_file, const cha
         #endif
 
         mp_compile_to_raw_code(&parse_tree, source_name, false, &cm);
+
+        #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+        if (locals_file != NULL) {
+            save_local_names(&cm, source_name);
+        }
+        #endif
 
         if ((output_file != NULL && strcmp(output_file, "-") == 0) ||
             (output_file == NULL && strcmp(file, "-") == 0)) {
@@ -141,6 +211,9 @@ static int usage(char **argv) {
         "--version : show version information\n"
         "-o : output file for compiled bytecode (defaults to input filename with .mpy extension, or stdout if input is stdin)\n"
         "-s : source filename to embed in the compiled bytecode (defaults to input file)\n"
+        #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+        "--locals <file> : write each function's local variable names to <file> as JSON\n"
+        #endif
         "-v : verbose (trace various operations); can be multiple\n"
         "-O[N] : apply bytecode optimizations of level N\n"
         "\n"
@@ -354,6 +427,14 @@ MP_NOINLINE int main_(int argc, char **argv) {
                 }
                 a += 1;
                 output_file = argv[a];
+            #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+            } else if (strcmp(argv[a], "--locals") == 0) {
+                if (a + 1 >= argc) {
+                    exit(usage(argv));
+                }
+                a += 1;
+                locals_file = argv[a];
+            #endif
             } else if (strcmp(argv[a], "-s") == 0) {
                 if (a + 1 >= argc) {
                     exit(usage(argv));

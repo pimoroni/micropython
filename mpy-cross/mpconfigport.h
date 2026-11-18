@@ -30,6 +30,7 @@
 #define MICROPY_PERSISTENT_CODE_LOAD (0)
 #define MICROPY_PERSISTENT_CODE_LOAD_NATIVE (0)
 #define MICROPY_PERSISTENT_CODE_SAVE (1)
+#define MICROPY_PY_SYS_SETTRACE_LOCALNAMES (1)
 
 #ifndef MICROPY_PERSISTENT_CODE_SAVE_FILE
 #if defined(__i386__) || defined(__x86_64__) || defined(_WIN32) || defined(__unix__) || defined(__APPLE__)

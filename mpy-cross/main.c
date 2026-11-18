@@ -104,7 +104,7 @@ static void write_local_names(FILE *out, const mp_module_context_t *context, con
         size_t line = mp_bytecode_get_source_line(ip, line_info_top, 0);
         fprintf(out, "%s\n    {\"name\": ", *first ? "" : ",");
         write_json_string(out, qstr_str(name));
-        fprintf(out, ", \"line\": %u, \"locals\": [", (unsigned int)line);
+        fprintf(out, ", \"line\": %u, \"n_state\": %u, \"locals\": [", (unsigned int)line, (unsigned int)n_state);
         for (size_t i = 0; i < rc->local_names_len; ++i) {
             if (i > 0) {
                 fputs(", ", out);

@@ -161,7 +161,7 @@ static mp_obj_t frame_f_locals(mp_obj_t self_in) {
     // number `local_num` lives at physical slot `n_state - 1 - local_num` (see
     // "fastn" addressing in vm.c). The remaining low slots are the value stack.
     size_t num_locals = 0;
-    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES || MICROPY_PY_SYS_SETTRACE_LOCALNAMES_PERSIST
+    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
     const mp_raw_code_t *rc = (code_state->fun_bc != NULL) ? code_state->fun_bc->rc : NULL;
     if (rc != NULL && rc->local_names != NULL) {
         num_locals = rc->local_names_len;
@@ -172,11 +172,11 @@ static mp_obj_t frame_f_locals(mp_obj_t self_in) {
         // Real variable names are available: expose only the true local slots.
         //
         // mp_raw_code_get_local_name() is only declared when name tracking is
-        // built (LOCALNAMES and/or PERSIST); guard its call site the same way
+        // built (LOCALNAMES); guard its call site the same way
         // so a SETTRACE-only build still compiles. num_locals is always 0
         // there (nothing above ever sets it), so this branch is unreachable
         // in that build and the guard changes no other build's behaviour.
-        #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES || MICROPY_PY_SYS_SETTRACE_LOCALNAMES_PERSIST
+        #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
         for (size_t local_num = 0; local_num < num_locals; ++local_num) {
             size_t slot = code_state->n_state - 1 - local_num;
             mp_obj_t state_obj = code_state->state[slot];

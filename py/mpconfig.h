@@ -1875,12 +1875,6 @@ typedef time_t mp_timestamp_t;
 #define MICROPY_PY_SYS_SETTRACE_LOCALNAMES (0)
 #endif
 
-// Whether to save local variable names in bytecode for .mpy debugging (persistent storage)
-// Requires MICROPY_PY_SYS_SETTRACE and MICROPY_PY_SYS_SETTRACE_LOCALNAMES to be enabled.
-#ifndef MICROPY_PY_SYS_SETTRACE_LOCALNAMES_PERSIST
-#define MICROPY_PY_SYS_SETTRACE_LOCALNAMES_PERSIST (0)
-#endif
-
 // Whether to provide "sys.getsizeof" function
 #ifndef MICROPY_PY_SYS_GETSIZEOF
 #define MICROPY_PY_SYS_GETSIZEOF (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EVERYTHING)

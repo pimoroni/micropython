@@ -176,14 +176,14 @@
     } \
 } while(0)
 
-#define TRACE_TICK(current_ip, current_sp, is_exception) do { \
+#define TRACE_TICK(current_ip, current_sp, exception, handled) do { \
     assert(code_state != code_state->prev_state); \
     assert(MP_STATE_THREAD(current_code_state) == code_state); \
     if (!mp_prof_is_executing && code_state->frame && MP_STATE_THREAD(prof_trace_callback)) { \
         MP_PROF_INSTR_DEBUG_PRINT(code_state->ip); \
     } \
     if (!mp_prof_is_executing && code_state->frame && code_state->frame->callback) { \
-        mp_prof_instr_tick(code_state, is_exception); \
+        mp_prof_instr_tick(code_state, exception, handled); \
     } \
 } while(0)
 
@@ -192,7 +192,7 @@
 #define FRAME_ENTER()
 #define FRAME_LEAVE()
 #define FRAME_UPDATE()
-#define TRACE_TICK(current_ip, current_sp, is_exception)
+#define TRACE_TICK(current_ip, current_sp, exception, handled)
 #endif // MICROPY_PY_SYS_SETTRACE
 
 #if MICROPY_PY_BUILTINS_SLICE
@@ -247,7 +247,7 @@ mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_cod
     #define DISPATCH() do { \
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
-        TRACE_TICK(ip, sp, false); \
+        TRACE_TICK(ip, sp, MP_OBJ_NULL, false); \
         goto *entry_table[*ip++]; \
     } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
@@ -328,7 +328,7 @@ dispatch_loop:
                 #else
                 TRACE(ip);
                 MARK_EXC_IP_GLOBAL();
-                TRACE_TICK(ip, sp, false);
+                TRACE_TICK(ip, sp, MP_OBJ_NULL, false);
                 switch (*ip++) {
                 #endif
 
@@ -1425,9 +1425,15 @@ exception_handler:
             }
 
             #if MICROPY_PY_SYS_SETTRACE
-            // Exceptions are traced here
+            // Exceptions are traced here, before the handler search below, so
+            // work out whether a try block in this frame will see the exception
+            // the same way that search does.
             if (mp_obj_is_subclass_fast(MP_OBJ_FROM_PTR(((mp_obj_base_t*)nlr.ret_val)->type), MP_OBJ_FROM_PTR(&mp_type_Exception))) {
-                TRACE_TICK(code_state->ip, code_state->sp, true /* yes, it's an exception */);
+                const mp_exc_stack_t *handler = exc_sp;
+                while (handler >= exc_stack && handler->handler <= code_state->ip) {
+                    handler--;
+                }
+                TRACE_TICK(code_state->ip, code_state->sp, MP_OBJ_FROM_PTR(nlr.ret_val), handler >= exc_stack);
             }
             #endif
 

@@ -411,7 +411,7 @@ mp_obj_t mp_prof_frame_update(const mp_code_state_t *code_state) {
     return MP_OBJ_FROM_PTR(o);
 }
 
-mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
+mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, mp_obj_t exception, bool handled) {
     // Detect execution recursion
     assert(!mp_prof_is_executing);
     assert(code_state->frame);
@@ -430,8 +430,12 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
 
     // Call event's are handled inside mp_prof_frame_enter
 
-    // SETTRACE event EXCEPTION
-    if (is_exception) {
+    // SETTRACE event EXCEPTION, with arg (type, value, handled). CPython passes
+    // a traceback third; MicroPython has none, so it says instead whether a
+    // try block in this frame will see the exception.
+    if (exception != MP_OBJ_NULL) {
+        mp_obj_t info[3] = { MP_OBJ_FROM_PTR(mp_obj_get_type(exception)), exception, mp_obj_new_bool(handled) };
+        args->arg = mp_obj_new_tuple(3, info);
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_exception);
         top = mp_prof_callback_invoke(callback, args);
         return top;

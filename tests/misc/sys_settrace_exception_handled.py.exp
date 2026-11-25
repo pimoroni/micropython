@@ -1,0 +1,4 @@
+inner ValueError boom False
+caught ValueError boom True
+inner ValueError boom False
+leaks ValueError boom False

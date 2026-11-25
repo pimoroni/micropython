@@ -139,6 +139,9 @@ MP_BC_FORMAT_OFFSET = 3
 
 MP_NATIVE_ARCH_FLAGS_PRESENT = 0x40
 
+# Tag of the optional local variable names section after the outer raw code.
+MPY_LOCAL_NAMES_TAG = b"L"
+
 mp_unary_op_method_name = (
     "__pos__",
     "__neg__",
@@ -592,6 +595,7 @@ class CompiledModule:
         qstr_table_file_offset,
         obj_table_file_offset,
         raw_code_file_offset,
+        raw_code_end_file_offset,
         escaped_name,
     ):
         self.mpy_source_file = mpy_source_file
@@ -605,6 +609,7 @@ class CompiledModule:
         self.qstr_table_file_offset = qstr_table_file_offset
         self.obj_table_file_offset = obj_table_file_offset
         self.raw_code_file_offset = raw_code_file_offset
+        self.raw_code_end_file_offset = raw_code_end_file_offset
         self.escaped_name = escaped_name
 
     def hexdump(self):
@@ -888,6 +893,7 @@ class RawCode(object):
 
     def __init__(self, parent_name, qstr_table, fun_data, prelude_offset, code_kind):
         self.qstr_table = qstr_table
+        self.local_names = None  # QStrType by local_num, None where unnamed
         self.fun_data = fun_data
         self.prelude_offset = prelude_offset
         self.code_kind = code_kind
@@ -950,6 +956,17 @@ class RawCode(object):
         empty_children = len(self.children) == 0 and prelude_ptr is None
         generate_minimal = self.code_kind == MP_CODE_BYTECODE and empty_children
 
+        if self.local_names:
+            print("#if MICROPY_PY_SYS_SETTRACE_LOCALNAMES")
+            print(
+                "static const qstr_short_t local_names_%s[%u] = {"
+                % (self.escaped_name, len(self.local_names))
+            )
+            for name in self.local_names:
+                print("    %s," % (name.qstr_id if name else "MP_QSTRnull"))
+            print("};")
+            print("#endif")
+
         if generate_minimal:
             print("#if MICROPY_PERSISTENT_CODE_SAVE")
 
@@ -996,6 +1013,11 @@ class RawCode(object):
             print("    },")
             print("    #endif")
         print("    #endif")
+        if self.local_names:
+            print("    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES")
+            print("    .local_names = local_names_%s," % self.escaped_name)
+            print("    .local_names_len = %u," % len(self.local_names))
+            print("    #endif")
         if self.code_kind == MP_CODE_NATIVE_ASM:
             print("    .asm_n_pos_args = %u," % self.n_pos_args)
             print("    .asm_type_sig = %u," % type_sig)
@@ -1142,6 +1164,8 @@ class RawCodeBytecode(RawCode):
         print("  raw bytecode:", len(bc), hexlify_to_str(bc))
         print("  prelude:", self.prelude_signature)
         print("  args:", [self.qstr_table[i].str for i in self.names[1:]])
+        if self.local_names:
+            print("  locals:", [name.str if name else None for name in self.local_names])
         print("  line info:", hexlify_to_str(bc[self.offset_line_info : self.offset_opcodes]))
         ip = self.offset_opcodes
         while ip < len(bc):
@@ -1511,6 +1535,17 @@ def read_raw_code(reader, parent_name, qstr_table, obj_table, segments):
     return rc
 
 
+def read_local_names(reader, rc, segments):
+    # Names come in the same order as the raw codes: each raw code, then its children.
+    n_names = reader.read_uint()
+    names = [read_qstr(reader, segments) for _ in range(n_names)]
+    names = [name if name.str else None for name in names]
+    if rc.code_kind == MP_CODE_BYTECODE and names:
+        rc.local_names = names
+    for child in rc.children:
+        read_local_names(reader, child, segments)
+
+
 def read_mpy(filename):
     import re
 
@@ -1566,6 +1601,11 @@ def read_mpy(filename):
         # Read the outer raw code, which will in turn read all its children.
         raw_code_file_offset = reader.tell()
         raw_code = read_raw_code(reader, cm_escaped_name, qstr_table, obj_table, segments)
+        raw_code_end_file_offset = reader.tell()
+
+        # Read the optional local variable names that follow the outer raw code.
+        if fileobj.read(1) == MPY_LOCAL_NAMES_TAG:
+            read_local_names(reader, raw_code, segments)
 
     # Create the outer-level compiled module representing the whole .mpy file.
     return CompiledModule(
@@ -1579,6 +1619,7 @@ def read_mpy(filename):
         qstr_table_file_offset,
         obj_table_file_offset,
         raw_code_file_offset,
+        raw_code_end_file_offset,
         cm_escaped_name,
     )
 
@@ -1942,8 +1983,11 @@ def merge_mpy(compiled_modules, output_file):
         for cm in compiled_modules:
             if qstr_table_base == 0 and obj_table_base == 0:
                 with open(cm.mpy_source_file, "rb") as f:
+                    # Copy the raw code only; local variable names are not merged.
                     f.seek(cm.raw_code_file_offset)
-                    merged_mpy.extend(f.read())
+                    merged_mpy.extend(
+                        f.read(cm.raw_code_end_file_offset - cm.raw_code_file_offset)
+                    )
             else:
                 merged_mpy.extend(rewrite_raw_code(cm.raw_code, qstr_table_base, obj_table_base))
             qstr_table_base += len(cm.qstr_table)

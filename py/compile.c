@@ -3495,7 +3495,7 @@ static void scope_compute_things(scope_t *scope) {
     // Save local variable names for debugging
     if (SCOPE_IS_FUNC_LIKE(scope->kind) && scope->num_locals > 0) {
         // Allocate array for local variable names
-        qstr *names = m_new0(qstr, scope->num_locals);
+        qstr_short_t *names = m_new0(qstr_short_t, scope->num_locals);
 
         // Populate with variable names from id_info
         for (int i = 0; i < scope->id_info_len; i++) {

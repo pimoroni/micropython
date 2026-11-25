@@ -26,6 +26,7 @@
 
 // This code glues the code emitters to the runtime.
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,9 @@ mp_raw_code_t *mp_emit_glue_new_raw_code(void) {
     rc->line_of_definition = 0;
     #endif
     #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+    // Frozen bytecode uses the truncated struct, which is read through mp_raw_code_t.
+    MP_STATIC_ASSERT(offsetof(mp_raw_code_t, local_names) == offsetof(mp_raw_code_truncated_t, local_names));
+    MP_STATIC_ASSERT(offsetof(mp_raw_code_t, local_names_len) == offsetof(mp_raw_code_truncated_t, local_names_len));
     rc->local_names = NULL;
     rc->local_names_len = 0;
     #endif

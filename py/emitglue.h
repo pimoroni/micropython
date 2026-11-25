@@ -92,13 +92,16 @@ typedef struct _mp_raw_code_t {
     mp_bytecode_prelude_t prelude;
     #endif
     #endif
+    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+    // Local variable names indexed by local_num, MP_QSTRnull where unnamed.
+    // Must precede the asm fields so mp_raw_code_truncated_t has them at the
+    // same offset.
+    const qstr_short_t *local_names;
+    uint16_t local_names_len;
+    #endif
     #if MICROPY_EMIT_INLINE_ASM
     uint32_t asm_n_pos_args : 8;
     uint32_t asm_type_sig : 24; // compressed as 2-bit types; ret is MSB, then arg0, arg1, etc
-    #endif
-    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
-    const qstr *local_names;  // Array of local variable names indexed by local_num
-    uint16_t local_names_len; // Length of local_names array
     #endif
 } mp_raw_code_t;
 
@@ -121,6 +124,10 @@ typedef struct _mp_raw_code_truncated_t {
     uint32_t line_of_definition;
     mp_bytecode_prelude_t prelude;
     #endif
+    #endif
+    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+    const qstr_short_t *local_names;
+    uint16_t local_names_len;
     #endif
 } mp_raw_code_truncated_t;
 

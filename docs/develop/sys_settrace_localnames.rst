@@ -25,7 +25,8 @@ Configuration
 The feature is controlled by configuration macros:
 
 ``MICROPY_PY_SYS_SETTRACE_LOCALNAMES``
-  Enables local variable name preservation for source files (RAM storage).
+  Enables local variable name preservation for source files (RAM storage)
+  and frozen bytecode (ROM storage).
   Default: ``0`` (disabled)
 
 Dependencies
@@ -41,9 +42,11 @@ When enabled, the feature adds:
 
 * One pointer field (``local_names``) per function in ``mp_raw_code_t``
 * One length field (``local_names_len``) per function in ``mp_raw_code_t``
-* One qstr array per function containing local variable names
+* One ``qstr_short_t`` array per function containing local variable names
 
-Total memory overhead per function: ``8 bytes + (num_locals * sizeof(qstr))``
+Total memory overhead per function: ``8 bytes + (num_locals * sizeof(qstr_short_t))``.
+For frozen bytecode this is all in ROM, along with any names not already
+interned in the firmware.
 
 Implementation Details
 ----------------------
@@ -66,8 +69,11 @@ The implementation consists of several components:
    callbacks, falling back to index-based names when real names unavailable.
 
 4. **Unified Access Layer** (``py/emitglue.h``)
-   Provides ``mp_raw_code_get_local_name()`` function with bounds checking
-   and hybrid storage support.
+   Provides ``mp_raw_code_get_local_name()`` function with bounds checking.
+
+5. **Persistence** (``py/persistentcode.c``, ``tools/mpy-tool.py``)
+   ``mpy-cross`` writes the names to an optional section of the .mpy file,
+   which ``mpy-tool.py`` freezes into ROM arrays.
 
 Data Structures
 ~~~~~~~~~~~~~~~
@@ -79,10 +85,15 @@ Extended ``mp_raw_code_t`` structure:
     typedef struct _mp_raw_code_t {
         // ... existing fields ...
         #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
-        const qstr *local_names;      // Array of local variable names
-        uint16_t local_names_len;     // Length of local_names array
+        const qstr_short_t *local_names; // Array of local variable names
+        uint16_t local_names_len;        // Length of local_names array
         #endif
+        // ... asm fields ...
     } mp_raw_code_t;
+
+The fields come before the inline assembler fields, and are repeated in
+``mp_raw_code_truncated_t``, which frozen bytecode uses, so they are at the
+same offset in both.
 
 Local Variable Name Collection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -90,17 +101,17 @@ Local Variable Name Collection
 During compilation in ``scope_compute_things()``:
 
 1. Check if scope is function-like and has local variables
-2. Allocate qstr array with size ``scope->num_locals``
+2. Allocate ``qstr_short_t`` array with size ``scope->num_locals``
 3. Iterate through ``id_info`` and populate array at correct indices
 4. Store array pointer and length in raw code object
 
 .. code-block:: c
 
     if (SCOPE_IS_FUNC_LIKE(scope->kind) && scope->num_locals > 0) {
-        qstr *names = m_new0(qstr, scope->num_locals);
+        qstr_short_t *names = m_new0(qstr_short_t, scope->num_locals);
         for (int i = 0; i < scope->id_info_len; i++) {
             id_info_t *id = &scope->id_info[i];
-            if ((id->kind == ID_INFO_KIND_LOCAL || id->kind == ID_INFO_KIND_CELL) && 
+            if ((id->kind == ID_INFO_KIND_LOCAL || id->kind == ID_INFO_KIND_CELL || id->kind == ID_INFO_KIND_FREE) &&
                 id->local_num < scope->num_locals) {
                 names[id->local_num] = id->qst;
             }
@@ -117,14 +128,28 @@ Critical for memory safety, the unified access function includes bounds checking
 .. code-block:: c
 
     static inline qstr mp_raw_code_get_local_name(const mp_raw_code_t *rc, uint16_t local_num) {
-        #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
-        if (rc->local_names != NULL && local_num < rc->local_names_len && 
-            rc->local_names[local_num] != MP_QSTR_NULL) {
+        if (rc->local_names != NULL && local_num < rc->local_names_len) {
             return rc->local_names[local_num];
         }
-        #endif
-        return MP_QSTR_NULL; // No name available
+        return MP_QSTRnull;
     }
+
+.mpy Format
+~~~~~~~~~~~
+
+When ``mpy-cross`` is built with the feature, it writes a local variable names
+section after the outer raw code:
+
+* the tag byte ``L``
+* for each raw code, in the order the raw codes are saved (each raw code, then
+  its children): the number of names, then that many qstrs, an empty qstr for
+  an unnamed slot
+
+The section follows the point where ``mp_raw_code_load()`` stops reading, so it
+needs no version change and is ignored when a .mpy file is imported.
+``mpy-tool.py`` reads it when freezing and emits each function's names as a
+``qstr_short_t`` array referenced from its ``mp_raw_code_t``. ``mpy-tool.py``
+does not carry the names into merged .mpy files.
 
 Usage
 -----
@@ -185,6 +210,7 @@ Source Files vs .mpy Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Source files: local variable names are preserved.
+* Frozen bytecode: local variable names are preserved.
 * .mpy files: fall back to index-based names (``local_XX``).
 
 Compatibility
@@ -206,7 +232,9 @@ Disable the feature to minimize memory usage, or enable selectively based
 on debugging requirements.
 
 **.mpy Distribution:**
-Code loaded from .mpy files falls back to index-based names.
+Code loaded from .mpy files falls back to index-based names. Frozen code keeps
+its names when the .mpy files are compiled by an ``mpy-cross`` built with the
+feature, the default for ``mpy-cross``.
 
 Testing
 -------

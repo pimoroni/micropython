@@ -1,4 +1,4 @@
-# Test local variable name preservation in .mpy files (Phase 2)
+# Test local variable names at the return event of source-compiled code
 import sys
 
 # Only run if settrace is available
@@ -14,7 +14,6 @@ def test_function():
     z = x + y
     return z
 
-# Test Phase 1 (RAM storage) first  
 frame_data = []
 
 def trace_function(frame, event, arg):
@@ -29,7 +28,7 @@ sys.settrace(trace_function)
 result = test_function()
 sys.settrace(None)
 
-print("Phase 1 (RAM) test:")
+print("Return event test:")
 if len(frame_data) > 0:
     # Look for return event which has the most complete locals
     return_data = None
@@ -52,10 +51,5 @@ if len(frame_data) > 0:
         print("  No return event captured")
 else:
     print("  No trace data captured")
-
-# Test Phase 2 (.mpy file storage) 
-# For now, just test that the feature doesn't break normal operation
-print("Phase 2 (bytecode) test:")
-print("  Basic functionality: OK")
 
 print("Result:", result)

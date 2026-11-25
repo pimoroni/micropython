@@ -102,6 +102,9 @@
 #define MPY_FEATURE_ARCH_FLAGS (0x40)
 #define MPY_FEATURE_ARCH_FLAGS_TEST(x) (((x) & MPY_FEATURE_ARCH_FLAGS) == MPY_FEATURE_ARCH_FLAGS)
 
+// Marks the optional local variable names section after the outer raw code.
+#define MPY_LOCAL_NAMES_TAG "L"
+
 enum {
     MP_NATIVE_ARCH_NONE = 0,
     MP_NATIVE_ARCH_X86,

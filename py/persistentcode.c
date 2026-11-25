@@ -684,6 +684,22 @@ static void save_raw_code(mp_print_t *print, const mp_raw_code_t *rc) {
     }
 }
 
+#if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+// Write each raw code's local variable names, in the same order as
+// save_raw_code(), as a count followed by that many qstrs (empty if unnamed).
+static void save_local_names(mp_print_t *print, const mp_raw_code_t *rc) {
+    size_t n_names = rc->kind == MP_CODE_BYTECODE && rc->local_names != NULL ? rc->local_names_len : 0;
+    mp_print_uint(print, n_names);
+    for (size_t i = 0; i < n_names; ++i) {
+        qstr name = rc->local_names[i];
+        save_qstr(print, name == MP_QSTRnull ? MP_QSTR_ : name);
+    }
+    for (size_t i = 0; i < rc->n_children; ++i) {
+        save_local_names(print, rc->children[i]);
+    }
+}
+#endif
+
 void mp_raw_code_save(mp_compiled_module_t *cm, mp_print_t *print) {
     // header contains:
     //  byte  'M'
@@ -722,6 +738,14 @@ void mp_raw_code_save(mp_compiled_module_t *cm, mp_print_t *print) {
 
     // Save outer raw code, which will save all its child raw codes.
     save_raw_code(print, cm->rc);
+
+    #if MICROPY_PY_SYS_SETTRACE_LOCALNAMES
+    // Local variable names follow the raw code, where the loader stops
+    // reading, so they are optional and ignored by mp_raw_code_load().
+    // mpy-tool.py freezes them for sys.settrace().
+    mp_print_bytes(print, (const byte *)MPY_LOCAL_NAMES_TAG, 1);
+    save_local_names(print, cm->rc);
+    #endif
 }
 
 #endif // MICROPY_PERSISTENT_CODE_SAVE

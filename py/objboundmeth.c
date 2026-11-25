@@ -150,3 +150,9 @@ mp_obj_t mp_obj_new_bound_meth(mp_obj_t meth, mp_obj_t self) {
     o->self = self;
     return MP_OBJ_FROM_PTR(o);
 }
+
+mp_obj_t mp_obj_bound_meth_get(mp_obj_t self_in, mp_obj_t *self) {
+    mp_obj_bound_meth_t *o = MP_OBJ_TO_PTR(self_in);
+    *self = o->self;
+    return o->meth;
+}

@@ -879,6 +879,7 @@ extern const mp_obj_type_t mp_type_module;
 extern const mp_obj_type_t mp_type_staticmethod;
 extern const mp_obj_type_t mp_type_classmethod;
 extern const mp_obj_type_t mp_type_bound_meth;
+extern const mp_obj_type_t mp_type_closure;
 extern const mp_obj_type_t mp_type_property;
 extern const mp_obj_type_t mp_type_stringio;
 extern const mp_obj_type_t mp_type_bytesio;
@@ -1048,12 +1049,16 @@ mp_obj_t mp_obj_new_exception_msg_vlist(const mp_obj_type_t *exc_type, mp_rom_er
 #endif
 mp_obj_t mp_obj_new_gen_wrap(mp_obj_t fun);
 mp_obj_t mp_obj_new_closure(mp_obj_t fun, size_t n_closed, const mp_obj_t *closed);
+// A closure's function, with the cells it closes over.
+mp_obj_t mp_obj_closure_get(mp_obj_t self_in, size_t *n_closed, const mp_obj_t **closed);
 mp_obj_t mp_obj_new_tuple(size_t n, const mp_obj_t *items);
 mp_obj_t mp_obj_new_list(size_t n, mp_obj_t *items);
 mp_obj_t mp_obj_new_dict(size_t n_args);
 mp_obj_t mp_obj_new_set(size_t n_args, mp_obj_t *items);
 mp_obj_t mp_obj_new_slice(mp_obj_t start, mp_obj_t stop, mp_obj_t step);
 mp_obj_t mp_obj_new_bound_meth(mp_obj_t meth, mp_obj_t self);
+// A bound method's function, with the object it is bound to.
+mp_obj_t mp_obj_bound_meth_get(mp_obj_t self_in, mp_obj_t *self);
 mp_obj_t mp_obj_new_getitem_iter(mp_obj_t *args, mp_obj_iter_buf_t *iter_buf);
 mp_obj_t mp_obj_new_module(qstr module_name);
 mp_obj_t mp_obj_new_memoryview(byte typecode, size_t nitems, void *items);

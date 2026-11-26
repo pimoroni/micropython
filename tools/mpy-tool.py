@@ -894,6 +894,7 @@ class RawCode(object):
     def __init__(self, parent_name, qstr_table, fun_data, prelude_offset, code_kind):
         self.qstr_table = qstr_table
         self.local_names = None  # QStrType by local_num, None where unnamed
+        self.line_of_definition = 0  # set by the parent, if it is bytecode
         self.fun_data = fun_data
         self.prelude_offset = prelude_offset
         self.code_kind = code_kind
@@ -990,7 +991,7 @@ class RawCode(object):
         print("    #endif")
         if self.code_kind == MP_CODE_BYTECODE:
             print("    #if MICROPY_PY_SYS_SETTRACE")
-            print("    .line_of_definition = %u," % 0)  # TODO
+            print("    .line_of_definition = %u," % self.line_of_definition)
             print("    .prelude = {")
             print("        .n_state = %u," % self.prelude_signature[0])
             print("        .n_exc_stack = %u," % self.prelude_signature[1])
@@ -1157,6 +1158,17 @@ class RawCodeBytecode(RawCode):
             ]
 
         return annotations, labels
+
+    def set_children_lines(self):
+        # A child is defined on the line of the opcode that makes it, as the
+        # compiler records when it emits that opcode.
+        bc = self.fun_data
+        ip = self.offset_opcodes
+        while ip < len(bc):
+            _, sz, arg, _ = mp_opcode_decode(bc, ip)
+            if bc[ip] in Opcode.ALL_WITH_CHILD and arg < len(self.children):
+                self.children[arg].line_of_definition = self.get_source_annotation(ip)["line"]
+            ip += sz
 
     def disassemble(self):
         bc = self.fun_data
@@ -1531,6 +1543,8 @@ def read_raw_code(reader, parent_name, qstr_table, obj_table, segments):
         n_children = reader.read_uint()
         for _ in range(n_children):
             rc.children.append(read_raw_code(reader, parent_name, qstr_table, obj_table, segments))
+        if kind == MP_CODE_BYTECODE:
+            rc.set_children_lines()
 
     return rc
 

@@ -1,4 +1,5 @@
-# test that frozen bytecode reports local variable names to sys.settrace
+# test that frozen bytecode reports local variable names, and the line each
+# function is defined on, to sys.settrace
 
 import sys
 
@@ -11,6 +12,8 @@ except (AttributeError, ImportError):
 
 
 def trace(frame, event, arg):
+    if event == "call" and frame.f_code.co_name in ("scroll", "update", "plain"):
+        print(frame.f_code.co_name, "defined on line", frame.f_lineno)
     if event == "return" and frame.f_code.co_name in ("scroll", "update", "plain"):
         print(frame.f_code.co_name, sorted(frame.f_locals))
     return trace

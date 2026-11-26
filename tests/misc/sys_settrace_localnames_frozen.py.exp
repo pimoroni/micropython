@@ -1,3 +1,6 @@
+scroll defined on line 4
 scroll ['offset', 'speed', 'update']
+update defined on line 7
 update ['offset', 'speed', 'timedelta']
+plain defined on line 16
 plain ['a', 'b', 'total']
